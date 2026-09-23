@@ -1,0 +1,12 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+*.pyc
+
+# Environments & Secrets
+backend/.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
