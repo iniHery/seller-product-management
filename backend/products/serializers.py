@@ -34,9 +34,7 @@ class ProductSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         source="category", queryset=Category.objects.all(), write_only=True
     )
-    seller_id = serializers.PrimaryKeyRelatedField(
-        source="seller", queryset=User.objects.all(), write_only=True
-    )
+
 
     class Meta:
         model = Product
@@ -53,7 +51,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "category",
             "category_id",
             "seller",
-            "seller_id",
+
         ]
         read_only_fields = [
             "id",
