@@ -4,8 +4,10 @@ import LoginView from '@/views/LoginView.vue';
 import { defineAsyncComponent } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
-// Lazy load Product view placeholder (can be replaced later)
+// Lazy load views
 const ProductView = defineAsyncComponent(() => import('@/views/ProductView.vue'));
+const CategoryView = defineAsyncComponent(() => import('@/views/CategoryView.vue'));
+const DashboardView = defineAsyncComponent(() => import('@/views/DashboardView.vue'));
 
 const routes = [
   {
@@ -18,10 +20,20 @@ const routes = [
     component: LoginView,
   },
   {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: DashboardView,
+  },
+  {
     path: '/products',
     name: 'Products',
     component: ProductView,
     // In a real app you would protect this route with a navigation guard.
+  },
+  {
+    path: '/categories',
+    name: 'Categories',
+    component: CategoryView,
   },
 ];
 
@@ -46,8 +58,9 @@ router.beforeEach(async (to, from) => {
     }
   }
 
-  // Protect /products route
-  if (to.name === 'Products' && !isAuthenticated) {
+  // Protect authenticated routes
+  const protectedRoutes = ['Products', 'Categories', 'Dashboard'];
+  if (protectedRoutes.includes(to.name) && !isAuthenticated) {
     return { path: '/login' };
   }
 

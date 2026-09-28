@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from .models import Category, Product
 from .serializers import CategorySerializer, ProductSerializer
@@ -127,3 +127,21 @@ class ProductDetailAPIView(APIView):
         product.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class DashboardAPIView(APIView):
+    """GET: return dashboard statistics for the authenticated seller"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        qs = Product.objects.filter(seller=request.user)
+        total_products = qs.count()
+        active_products = qs.filter(status='active').count()
+        inactive_products = qs.filter(status='inactive').count()
+        total_stock = qs.aggregate(Sum('stock'))['stock__sum'] or 0
+
+        data = {
+            "total_products": total_products,
+            "active_products": active_products,
+            "inactive_products": inactive_products,
+            "total_stock": total_stock
+        }
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
