@@ -1,7 +1,12 @@
+// src/App.vue
+<template>
+  <router-view />
+</template>
+
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+// No additional script needed – router-view renders matched component
 </script>
 
-<template>
-  <HelloWorld />
-</template>
+<style scoped>
+/* Global styles can stay in style.css */
+</style>

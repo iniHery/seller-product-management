@@ -15,7 +15,10 @@ class LoginAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            print("Login Failed. Errors:", serializer.errors)
+            print("Received data:", request.data)
+            serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         # Get or create token
         token, _ = Token.objects.get_or_create(user=user)
