@@ -1,6 +1,6 @@
 // src/views/LoginView.vue
 <template>
-  <div class="min-h-screen bg-slate-100 px-4 py-10 sm:px-6">
+  <div class="min-h-screen bg-slate-50 px-4 py-6 sm:px-6">
     <div class="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
       <div
         class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8"
@@ -44,7 +44,7 @@
               required
               autocomplete="username"
               placeholder="Enter your username"
-              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
           </div>
 
@@ -64,7 +64,7 @@
               required
               autocomplete="current-password"
               placeholder="Enter your password"
-              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
           </div>
 
@@ -80,7 +80,7 @@
           <button
             type="submit"
             :disabled="loading"
-            class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
+            class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span v-if="loading">Logging in...</span>
             <span v-else>Login</span>
@@ -123,7 +123,7 @@ async function handleLogin() {
       password: form.password,
     });
 
-    router.push({ name: 'Products' });
+    router.push({ name: 'Dashboard' });
   } catch (e) {
     console.error('Login error:', e);
     console.dir(e);

@@ -1,18 +1,12 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
 import LoginView from '@/views/LoginView.vue';
-import { defineAsyncComponent } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-
-// Lazy load views
-const ProductView = defineAsyncComponent(() => import('@/views/ProductView.vue'));
-const CategoryView = defineAsyncComponent(() => import('@/views/CategoryView.vue'));
-const DashboardView = defineAsyncComponent(() => import('@/views/DashboardView.vue'));
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -20,20 +14,26 @@ const routes = [
     component: LoginView,
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: DashboardView,
-  },
-  {
-    path: '/products',
-    name: 'Products',
-    component: ProductView,
-    // In a real app you would protect this route with a navigation guard.
-  },
-  {
-    path: '/categories',
-    name: 'Categories',
-    component: CategoryView,
+    path: '/',
+    component: () => import('@/layouts/AppLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/DashboardView.vue'),
+      },
+      {
+        path: 'products',
+        name: 'Products',
+        component: () => import('@/views/ProductView.vue'),
+      },
+      {
+        path: 'categories',
+        name: 'Categories',
+        component: () => import('@/views/CategoryView.vue'),
+      },
+    ],
   },
 ];
 
@@ -54,19 +54,18 @@ router.beforeEach(async (to, from) => {
     } catch (e) {
       // Invalid token – clear and redirect to login
       authStore.clearAuth();
-      return { path: '/login' };
+      return { name: 'Login' };
     }
   }
 
   // Protect authenticated routes
-  const protectedRoutes = ['Products', 'Categories', 'Dashboard'];
-  if (protectedRoutes.includes(to.name) && !isAuthenticated) {
-    return { path: '/login' };
+  if (to.matched.some((record) => record.meta.requiresAuth) && !isAuthenticated) {
+    return { name: 'Login' };
   }
 
   // Prevent logged-in users from accessing login page
   if (to.name === 'Login' && isAuthenticated) {
-    return { path: '/products' };
+    return { name: 'Dashboard' };
   }
 
   return true;
