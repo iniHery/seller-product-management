@@ -21,7 +21,7 @@
         <button
           type="button"
           @click="openCreateForm"
-          class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+          class="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 sm:w-auto sm:px-5"
         >
           <span class="mr-2 text-lg leading-none">+</span>
           Add Category
@@ -53,15 +53,15 @@
       ========================================= -->
       <div
         v-if="showForm"
-        class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        class="mb-6 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:max-w-3xl"
       >
-        <h2 class="mb-4 text-lg font-semibold text-slate-900">
+        <h2 class="mb-5 text-lg font-semibold text-slate-900">
           {{ editingCategory ? 'Edit Category' : 'Add Category' }}
         </h2>
 
         <form @submit.prevent="handleSubmit">
           <!-- Category Name -->
-          <div class="mb-4">
+          <div class="mb-5">
             <label
               for="categoryName"
               class="mb-2 block text-sm font-semibold text-slate-700"
@@ -87,11 +87,11 @@
           </div>
 
           <!-- Form Buttons -->
-          <div class="flex flex-wrap gap-3">
+          <div class="flex flex-col-reverse gap-3 sm:flex-row">
             <button
               type="submit"
               :disabled="submitting"
-              class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {{ submitting
                 ? 'Saving...'
@@ -105,7 +105,7 @@
               type="button"
               @click="closeForm"
               :disabled="submitting"
-              class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Cancel
             </button>
@@ -118,23 +118,23 @@
       ========================================= -->
       <div
         v-if="showDeleteModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-slate-900/50 transition-opacity"
+          class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] transition-opacity"
           @click="!deleting && cancelDelete()"
         ></div>
 
         <!-- Modal Panel -->
         <div
-          class="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all sm:my-8"
+          class="relative max-h-[calc(100vh-2rem)] w-full max-w-md transform overflow-y-auto rounded-2xl bg-white p-5 text-left shadow-xl transition-all sm:p-6"
         >
           <div class="mb-4">
             <h3 class="text-lg font-bold text-slate-900">
               Delete Category?
             </h3>
-            <p class="mt-2 text-sm text-slate-500">
+            <p class="mt-2 text-sm leading-6 text-slate-500">
               Are you sure you want to delete <span class="font-semibold text-slate-900">{{ categoryToDelete?.name }}</span>? This action cannot be undone.
             </p>
           </div>
@@ -144,7 +144,7 @@
               type="button"
               @click="cancelDelete"
               :disabled="deleting"
-              class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Cancel
             </button>
@@ -152,7 +152,7 @@
               type="button"
               @click="handleDelete"
               :disabled="deleting"
-              class="inline-flex w-full justify-center rounded-xl border border-transparent bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              class="inline-flex w-full justify-center rounded-xl border border-transparent bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               {{ deleting ? 'Deleting...' : 'Delete Category' }}
             </button>
@@ -170,7 +170,7 @@
         <!-- Loading State -->
         <div
           v-if="loading"
-          class="flex min-h-[300px] items-center justify-center"
+          class="flex min-h-70 items-center justify-center px-4 sm:min-h-75"
         >
           <div class="flex flex-col items-center">
             <div
@@ -186,7 +186,7 @@
         <!-- Empty State -->
         <div
           v-else-if="categories.length === 0"
-          class="flex min-h-[300px] items-center justify-center px-6 py-12"
+          class="flex min-h-70 items-center justify-center px-5 py-10 sm:min-h-75 sm:px-6 sm:py-12"
         >
           <div class="max-w-md text-center">
 
@@ -220,7 +220,7 @@
             <button
               type="button"
               @click="openCreateForm"
-              class="mt-5 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              class="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 sm:w-auto"
             >
               + Add Category
             </button>
@@ -232,35 +232,35 @@
           v-else
           class="overflow-x-auto"
         >
-          <table class="min-w-full divide-y divide-slate-200">
+          <table class="min-w-160 divide-y divide-slate-200 lg:min-w-full">
 
             <!-- Table Head -->
             <thead class="bg-slate-50">
               <tr>
                 <th
                   scope="col"
-                  class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5 sm:py-4 lg:px-6"
                 >
                   Category Name
                 </th>
 
                 <th
                   scope="col"
-                  class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5 sm:py-4 lg:px-6"
                 >
                   Created At
                 </th>
 
                 <th
                   scope="col"
-                  class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5 sm:py-4 lg:px-6"
                 >
                   Updated At
                 </th>
 
                 <th
                   scope="col"
-                  class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5 sm:py-4 lg:px-6"
                 >
                   Actions
                 </th>
@@ -276,34 +276,34 @@
               >
 
                 <!-- Name -->
-                <td class="whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-900">
+                <td class="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-900 sm:px-5 lg:px-6">
                   {{ category.name }}
                 </td>
 
                 <!-- Created At -->
-                <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
+                <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
                   {{ formatDate(category.created_at) }}
                 </td>
 
                 <!-- Updated At -->
-                <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
+                <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
                   {{ formatDate(category.updated_at) }}
                 </td>
 
                 <!-- Actions -->
-                <td class="whitespace-nowrap px-6 py-4 text-right">
+                <td class="px-4 py-4 text-right sm:px-5 lg:px-6">
                   <div class="flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
                       @click="openEditForm(category)"
-                      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                      class="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:px-3 sm:text-sm"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       @click="confirmDelete(category)"
-                      class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 hover:text-red-800"
+                      class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 hover:text-red-800 sm:px-3 sm:text-sm"
                     >
                       Delete
                     </button>

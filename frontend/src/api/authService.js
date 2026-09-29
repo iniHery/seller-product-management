@@ -10,6 +10,14 @@ export function login(credentials) {
 }
 
 /**
+ * Register a user – expects { username, email, password }.
+ * Returns the raw Axios response.
+ */
+export function register(userData) {
+  return api.post('auth/register/', userData);
+}
+
+/**
  * Logout current user.
  */
 export function logout() {

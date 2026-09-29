@@ -86,6 +86,16 @@
             <span v-else>Login</span>
           </button>
         </form>
+
+        <p class="mt-6 text-center text-sm text-slate-500">
+          Belum punya akun?
+          <RouterLink
+            :to="{ name: 'Register' }"
+            class="font-semibold text-slate-900 underline-offset-4 hover:underline"
+          >
+            Register
+          </RouterLink>
+        </p>
       </div>
     </div>
   </div>
