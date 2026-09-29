@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
 from .models import Category, Product
 
 User = get_user_model()
@@ -27,14 +28,11 @@ class SellerSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    # read-only nested representations
     category = ProductCategorySerializer(read_only=True)
     seller = SellerSerializer(read_only=True)
-    # write-only PK fields mapping to relationships
     category_id = serializers.PrimaryKeyRelatedField(
         source="category", queryset=Category.objects.all(), write_only=True
     )
-
 
     class Meta:
         model = Product
@@ -51,7 +49,6 @@ class ProductSerializer(serializers.ModelSerializer):
             "category",
             "category_id",
             "seller",
-
         ]
         read_only_fields = [
             "id",
@@ -60,5 +57,3 @@ class ProductSerializer(serializers.ModelSerializer):
             "category",
             "seller",
         ]
-
-    # No extra validation needed; model validators handle price, stock, and unique SKU.

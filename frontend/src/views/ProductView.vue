@@ -1,10 +1,330 @@
+<script setup>
+import { onMounted, ref } from 'vue';
+
+import ProductForm from '@/components/ProductForm.vue';
+
+import { getProducts, getProduct, deleteProduct } from '@/api/productService';
+import { getCategories } from '@/api/categoryService';
+
+// State
+
+const products = ref([]);
+const categories = ref([]);
+
+const loading = ref(false);
+let productsRequestId = 0;
+
+const errorMessage = ref('');
+const successMessage = ref('');
+
+const showProductForm = ref(false);
+const editingProduct = ref(null);
+
+const showDetailModal = ref(false);
+const detailProduct = ref(null);
+const detailLoading = ref(false);
+const detailError = ref('');
+let detailRequestId = 0;
+
+const showDeleteModal = ref(false);
+const productToDelete = ref(null);
+const deleting = ref(false);
+
+const searchInput = ref('');
+const search = ref('');
+
+const categoryFilter = ref('');
+const statusFilter = ref('');
+
+const currentPage = ref(1);
+
+const pagination = ref({
+  count: 0,
+  next: null,
+  previous: null,
+});
+
+// Product
+
+async function fetchProducts(page = 1) {
+  const requestId = ++productsRequestId;
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const params = {
+      page,
+    };
+
+    if (search.value.trim()) {
+      params.search = search.value.trim();
+    }
+
+    if (categoryFilter.value) {
+      params.category = categoryFilter.value;
+    }
+
+    if (statusFilter.value) {
+      params.status = statusFilter.value;
+    }
+
+    const response = await getProducts(params);
+    if (requestId !== productsRequestId) return;
+
+    const responseData = response.data?.data;
+
+    products.value = responseData?.results || [];
+
+    pagination.value = {
+      count: responseData?.count || 0,
+      next: responseData?.next || null,
+      previous: responseData?.previous || null,
+    };
+
+    currentPage.value = page;
+  } catch (error) {
+    console.error('Failed to fetch products:', error);
+    if (requestId !== productsRequestId) return;
+
+    if (error.response?.data?.detail) {
+      errorMessage.value = error.response.data.detail;
+    } else {
+      errorMessage.value = 'Failed to load products.';
+    }
+
+    products.value = [];
+
+    pagination.value = {
+      count: 0,
+      next: null,
+      previous: null,
+    };
+  } finally {
+    if (requestId === productsRequestId) {
+      loading.value = false;
+    }
+  }
+}
+
+// Categories
+
+async function fetchCategories() {
+  try {
+    const response = await getCategories();
+
+    categories.value = response.data?.data || [];
+  } catch (error) {
+    console.error('Failed to fetch categories:', error);
+
+    categories.value = [];
+    errorMessage.value = error.response?.data?.detail || 'Failed to load categories.';
+  }
+}
+
+// Search and filter
+
+function handleSearch() {
+  search.value = searchInput.value.trim();
+
+  fetchProducts(1);
+}
+
+function resetFilters() {
+  searchInput.value = '';
+  search.value = '';
+
+  categoryFilter.value = '';
+  statusFilter.value = '';
+
+  fetchProducts(1);
+}
+
+// Pagination
+
+function goToPage(page) {
+  if (page < 1) {
+    return;
+  }
+
+  fetchProducts(page);
+}
+
+// Product detail
+
+async function openProductDetail(product) {
+  const requestId = ++detailRequestId;
+  showDetailModal.value = true;
+  detailProduct.value = null;
+  detailError.value = '';
+  detailLoading.value = true;
+
+  try {
+    const response = await getProduct(product.id);
+    if (response.data?.success === false) {
+      throw new Error(response.data.detail || 'Failed to load product details.');
+    }
+    if (requestId === detailRequestId) {
+      detailProduct.value = response.data?.data || response.data;
+    }
+  } catch (error) {
+    console.error('Failed to fetch product details:', error);
+    if (requestId === detailRequestId) {
+      detailError.value = error.response?.data?.detail || error.message || 'Failed to load product details.';
+    }
+  } finally {
+    if (requestId === detailRequestId) {
+      detailLoading.value = false;
+    }
+  }
+}
+
+function closeProductDetail() {
+  detailRequestId += 1;
+  showDetailModal.value = false;
+  detailProduct.value = null;
+  detailError.value = '';
+}
+
+// Add/edit product
+
+function openCreateProduct() {
+  errorMessage.value = '';
+  successMessage.value = '';
+  editingProduct.value = null;
+  showProductForm.value = true;
+}
+
+function closeProductForm() {
+  showProductForm.value = false;
+}
+
+async function handleProductCreated() {
+  showProductForm.value = false;
+  successMessage.value = 'Product created successfully.';
+
+  await fetchProducts(1);
+
+  window.setTimeout(() => {
+    successMessage.value = '';
+  }, 3000);
+}
+
+function openEditProduct(product) {
+  errorMessage.value = '';
+  successMessage.value = '';
+
+  editingProduct.value = product;
+  showProductForm.value = true;
+}
+
+function closeProductEditor() {
+  showProductForm.value = false;
+  editingProduct.value = null;
+}
+
+async function handleProductUpdated() {
+  showProductForm.value = false;
+  editingProduct.value = null;
+
+  successMessage.value = 'Product updated successfully.';
+
+  await fetchProducts(currentPage.value);
+
+  window.setTimeout(() => {
+    successMessage.value = '';
+  }, 3000);
+}
+
+// Delete product
+
+function confirmDelete(product) {
+  productToDelete.value = product;
+  showDeleteModal.value = true;
+}
+
+function cancelDelete() {
+  if (deleting.value) return;
+  showDeleteModal.value = false;
+  productToDelete.value = null;
+}
+
+async function handleDelete() {
+  if (!productToDelete.value) return;
+
+  deleting.value = true;
+  errorMessage.value = '';
+
+  try {
+    await deleteProduct(productToDelete.value.id);
+
+    showDeleteModal.value = false;
+    successMessage.value = 'Product deleted successfully.';
+
+    if (products.value.length === 1 && currentPage.value > 1) {
+      await fetchProducts(currentPage.value - 1);
+    } else {
+      await fetchProducts(currentPage.value);
+    }
+
+    window.setTimeout(() => {
+      successMessage.value = '';
+    }, 3000);
+  } catch (error) {
+    console.error('Failed to delete product:', error);
+
+    if (error.response?.data?.detail) {
+      errorMessage.value = error.response.data.detail;
+    } else {
+      errorMessage.value = 'Failed to delete product.';
+    }
+
+    showDeleteModal.value = false;
+  } finally {
+    deleting.value = false;
+    productToDelete.value = null;
+  }
+}
+
+// Helpers
+
+function formatPrice(price) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(Number(price || 0));
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Lifecycle
+
+onMounted(async () => {
+  await Promise.all([
+    fetchProducts(1),
+    fetchCategories(),
+  ]);
+});
+</script>
+
 <template>
   <div class="min-h-screen bg-slate-50 text-slate-900">
     <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
-      <!-- ========================================
-           PAGE HEADER
-      ========================================= -->
+      <!-- Page header -->
       <div
         class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
@@ -28,9 +348,7 @@
         </button>
       </div>
 
-      <!-- ========================================
-           SUCCESS MESSAGE
-      ========================================= -->
+      <!-- Success message -->
       <div
         v-if="successMessage"
         class="mb-6 flex items-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
@@ -38,9 +356,7 @@
         {{ successMessage }}
       </div>
 
-      <!-- ========================================
-           ERROR MESSAGE
-      ========================================= -->
+      <!-- Error message -->
       <div
         v-if="errorMessage"
         class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
@@ -48,9 +364,7 @@
         {{ errorMessage }}
       </div>
 
-      <!-- ========================================
-           ADD PRODUCT FORM
-      ========================================= -->
+      <!-- Add/edit product form -->
       <div
         v-if="showProductForm"
         class="mx-auto mb-6 w-full max-w-4xl"
@@ -66,9 +380,7 @@
         />
       </div>
 
-      <!-- ========================================
-           PRODUCT DETAIL MODAL
-      ========================================= -->
+      <!-- Product detail modal -->
       <div
         v-if="showDetailModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -237,20 +549,16 @@
         </section>
       </div>
 
-      <!-- ========================================
-           DELETE CONFIRMATION MODAL
-      ========================================= -->
+      <!-- Delete confirmation modal -->
       <div
         v-if="showDeleteModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <!-- Backdrop -->
         <div
           class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] transition-opacity"
           @click="!deleting && cancelDelete()"
         ></div>
 
-        <!-- Modal Panel -->
         <div
           class="relative max-h-[calc(100vh-2rem)] w-full max-w-md transform overflow-y-auto rounded-2xl bg-white p-5 text-left shadow-xl transition-all sm:p-6"
         >
@@ -284,13 +592,10 @@
         </div>
       </div>
 
-      <!-- ========================================
-           SEARCH & FILTER
-      ========================================= -->
+      <!-- Search and filter -->
       <div
         class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
       >
-        <!-- Section Header -->
         <div class="mb-5">
           <h2 class="text-lg font-semibold text-slate-900">
             Search & Filter
@@ -302,7 +607,6 @@
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <!-- Search -->
           <div class="md:col-span-2 xl:col-span-2">
             <label
               for="search"
@@ -321,7 +625,6 @@
             />
           </div>
 
-          <!-- Category -->
           <div>
             <label
               for="category"
@@ -374,7 +677,6 @@
             </div>
           </div>
 
-          <!-- Status -->
           <div>
             <label
               for="status"
@@ -433,7 +735,6 @@
           </div>
         </div>
 
-        <!-- Filter Buttons -->
         <div class="mt-5 flex flex-wrap gap-3">
           <button
             type="button"
@@ -455,13 +756,10 @@
         </div>
       </div>
 
-      <!-- ========================================
-           PRODUCT TABLE
-      ========================================= -->
+      <!-- Product table -->
       <div
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
       >
-        <!-- Loading State -->
         <div
           v-if="loading"
           class="flex min-h-75 items-center justify-center px-4"
@@ -477,7 +775,6 @@
           </div>
         </div>
 
-        <!-- Empty State -->
         <div
           v-else-if="products.length === 0"
           class="flex min-h-75 items-center justify-center px-6 py-12"
@@ -520,7 +817,6 @@
           </div>
         </div>
 
-        <!-- Table -->
         <div v-else class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">
@@ -671,365 +967,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { onMounted, ref } from 'vue';
-
-import ProductForm from '@/components/ProductForm.vue';
-
-import { getProducts, getProduct, deleteProduct } from '@/api/productService';
-import { getCategories } from '@/api/categoryService';
-
-/*
-|--------------------------------------------------------------------------
-| State
-|--------------------------------------------------------------------------
-*/
-
-const products = ref([]);
-const categories = ref([]);
-
-const loading = ref(false);
-let productsRequestId = 0;
-
-const errorMessage = ref('');
-const successMessage = ref('');
-
-const showProductForm = ref(false);
-const editingProduct = ref(null);
-
-const showDetailModal = ref(false);
-const detailProduct = ref(null);
-const detailLoading = ref(false);
-const detailError = ref('');
-let detailRequestId = 0;
-
-const showDeleteModal = ref(false);
-const productToDelete = ref(null);
-const deleting = ref(false);
-
-const searchInput = ref('');
-const search = ref('');
-
-const categoryFilter = ref('');
-const statusFilter = ref('');
-
-const currentPage = ref(1);
-
-const pagination = ref({
-  count: 0,
-  next: null,
-  previous: null,
-});
-
-/*
-|--------------------------------------------------------------------------
-| Product
-|--------------------------------------------------------------------------
-*/
-
-async function fetchProducts(page = 1) {
-  const requestId = ++productsRequestId;
-  loading.value = true;
-  errorMessage.value = '';
-
-  try {
-    const params = {
-      page,
-    };
-
-    if (search.value.trim()) {
-      params.search = search.value.trim();
-    }
-
-    if (categoryFilter.value) {
-      params.category = categoryFilter.value;
-    }
-
-    if (statusFilter.value) {
-      params.status = statusFilter.value;
-    }
-
-    const response = await getProducts(params);
-    if (requestId !== productsRequestId) return;
-
-    const responseData = response.data?.data;
-
-    products.value = responseData?.results || [];
-
-    pagination.value = {
-      count: responseData?.count || 0,
-      next: responseData?.next || null,
-      previous: responseData?.previous || null,
-    };
-
-    currentPage.value = page;
-  } catch (error) {
-    console.error('Failed to fetch products:', error);
-    if (requestId !== productsRequestId) return;
-
-    if (error.response?.data?.detail) {
-      errorMessage.value = error.response.data.detail;
-    } else {
-      errorMessage.value = 'Failed to load products.';
-    }
-
-    products.value = [];
-
-    pagination.value = {
-      count: 0,
-      next: null,
-      previous: null,
-    };
-  } finally {
-    if (requestId === productsRequestId) {
-      loading.value = false;
-    }
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Categories
-|--------------------------------------------------------------------------
-*/
-
-async function fetchCategories() {
-  try {
-    const response = await getCategories();
-
-    categories.value = response.data?.data || [];
-  } catch (error) {
-    console.error('Failed to fetch categories:', error);
-
-    categories.value = [];
-    errorMessage.value = error.response?.data?.detail || 'Failed to load categories.';
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Search & Filter
-|--------------------------------------------------------------------------
-*/
-
-function handleSearch() {
-  search.value = searchInput.value.trim();
-
-  fetchProducts(1);
-}
-
-function resetFilters() {
-  searchInput.value = '';
-  search.value = '';
-
-  categoryFilter.value = '';
-  statusFilter.value = '';
-
-  fetchProducts(1);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Pagination
-|--------------------------------------------------------------------------
-*/
-
-function goToPage(page) {
-  if (page < 1) {
-    return;
-  }
-
-  fetchProducts(page);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Product Detail
-|--------------------------------------------------------------------------
-*/
-
-async function openProductDetail(product) {
-  const requestId = ++detailRequestId;
-  showDetailModal.value = true;
-  detailProduct.value = null;
-  detailError.value = '';
-  detailLoading.value = true;
-
-  try {
-    const response = await getProduct(product.id);
-    if (response.data?.success === false) {
-      throw new Error(response.data.detail || 'Failed to load product details.');
-    }
-    if (requestId === detailRequestId) {
-      detailProduct.value = response.data?.data || response.data;
-    }
-  } catch (error) {
-    console.error('Failed to fetch product details:', error);
-    if (requestId === detailRequestId) {
-      detailError.value = error.response?.data?.detail || error.message || 'Failed to load product details.';
-    }
-  } finally {
-    if (requestId === detailRequestId) {
-      detailLoading.value = false;
-    }
-  }
-}
-
-function closeProductDetail() {
-  detailRequestId += 1;
-  showDetailModal.value = false;
-  detailProduct.value = null;
-  detailError.value = '';
-}
-
-/*
-|--------------------------------------------------------------------------
-| Add / Edit Product
-|--------------------------------------------------------------------------
-*/
-
-function openCreateProduct() {
-  errorMessage.value = '';
-  successMessage.value = '';
-  editingProduct.value = null;
-  showProductForm.value = true;
-}
-
-function closeProductForm() {
-  showProductForm.value = false;
-}
-
-async function handleProductCreated() {
-  showProductForm.value = false;
-  successMessage.value = 'Product created successfully.';
-
-  await fetchProducts(1);
-
-  window.setTimeout(() => {
-    successMessage.value = '';
-  }, 3000);
-}
-
-function openEditProduct(product) {
-  errorMessage.value = '';
-  successMessage.value = '';
-
-  editingProduct.value = product;
-  showProductForm.value = true;
-}
-
-function closeProductEditor() {
-  showProductForm.value = false;
-  editingProduct.value = null;
-}
-
-async function handleProductUpdated() {
-  showProductForm.value = false;
-  editingProduct.value = null;
-
-  successMessage.value = 'Product updated successfully.';
-
-  await fetchProducts(currentPage.value);
-
-  window.setTimeout(() => {
-    successMessage.value = '';
-  }, 3000);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Delete Product
-|--------------------------------------------------------------------------
-*/
-
-function confirmDelete(product) {
-  productToDelete.value = product;
-  showDeleteModal.value = true;
-}
-
-function cancelDelete() {
-  if (deleting.value) return;
-  showDeleteModal.value = false;
-  productToDelete.value = null;
-}
-
-async function handleDelete() {
-  if (!productToDelete.value) return;
-
-  deleting.value = true;
-  errorMessage.value = '';
-
-  try {
-    await deleteProduct(productToDelete.value.id);
-
-    showDeleteModal.value = false;
-    successMessage.value = 'Product deleted successfully.';
-
-    if (products.value.length === 1 && currentPage.value > 1) {
-      await fetchProducts(currentPage.value - 1);
-    } else {
-      await fetchProducts(currentPage.value);
-    }
-
-    window.setTimeout(() => {
-      successMessage.value = '';
-    }, 3000);
-  } catch (error) {
-    console.error('Failed to delete product:', error);
-
-    if (error.response?.data?.detail) {
-      errorMessage.value = error.response.data.detail;
-    } else {
-      errorMessage.value = 'Failed to delete product.';
-    }
-
-    showDeleteModal.value = false;
-  } finally {
-    deleting.value = false;
-    productToDelete.value = null;
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Helpers
-|--------------------------------------------------------------------------
-*/
-
-function formatPrice(price) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(Number(price || 0));
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-/*
-|--------------------------------------------------------------------------
-| Lifecycle
-|--------------------------------------------------------------------------
-*/
-
-onMounted(async () => {
-  await Promise.all([
-    fetchProducts(1),
-    fetchCategories(),
-  ]);
-});
-</script>

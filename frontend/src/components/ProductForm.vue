@@ -2,7 +2,6 @@
   <div
     class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
   >
-    <!-- Header -->
     <div class="mb-6 border-b border-slate-200 pb-4">
       <h2 class="text-xl font-bold text-slate-900">
         {{ isEditMode ? 'Edit Product' : 'Add Product' }}
@@ -17,7 +16,6 @@
       </p>
     </div>
 
-    <!-- Error -->
     <div
       v-if="errorMessage"
       class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
@@ -29,7 +27,6 @@
       class="space-y-5"
       @submit.prevent="handleSubmit"
     >
-      <!-- Product Name -->
       <div>
         <label
           for="product-name"
@@ -59,7 +56,6 @@
         </p>
       </div>
 
-      <!-- SKU -->
       <div>
         <label
           for="product-sku"
@@ -89,7 +85,6 @@
         </p>
       </div>
 
-      <!-- Category -->
       <div>
         <label
           for="product-category"
@@ -153,9 +148,7 @@
         </p>
       </div>
 
-      <!-- Price + Stock -->
       <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <!-- Price -->
         <div>
           <label
             for="product-price"
@@ -187,7 +180,6 @@
           </p>
         </div>
 
-        <!-- Stock -->
         <div>
           <label
             for="product-stock"
@@ -220,7 +212,6 @@
         </div>
       </div>
 
-      <!-- Status -->
       <div>
         <label
           for="product-status"
@@ -244,7 +235,6 @@
         </select>
       </div>
 
-      <!-- Description -->
       <div>
         <label
           for="product-description"
@@ -262,7 +252,6 @@
         ></textarea>
       </div>
 
-      <!-- Buttons -->
       <div
         class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"
       >

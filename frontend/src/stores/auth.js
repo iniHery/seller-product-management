@@ -1,4 +1,3 @@
-// src/stores/auth.js
 import { defineStore } from 'pinia';
 import * as authService from '@/api/authService';
 
@@ -18,10 +17,8 @@ export const useAuthStore = defineStore('auth', {
         if (data.success) {
           const token = data.data.token;
           const user = data.data.user;
-          // persist
           localStorage.setItem('auth_token', token);
           localStorage.setItem('auth_user', JSON.stringify(user));
-          // update state
           this.token = token;
           this.user = user;
           this.status = 'authenticated';

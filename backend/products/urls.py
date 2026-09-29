@@ -1,5 +1,12 @@
 from django.urls import path
-from .views import CategoryAPIView, ProductAPIView, ProductDetailAPIView, CategoryDetailAPIView, DashboardAPIView
+
+from .views import (
+    CategoryAPIView,
+    CategoryDetailAPIView,
+    DashboardAPIView,
+    ProductAPIView,
+    ProductDetailAPIView,
+)
 
 urlpatterns = [
     path('categories/', CategoryAPIView.as_view(), name='category-list'),

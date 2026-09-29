@@ -1,16 +1,11 @@
 <template>
   <div class="min-h-screen w-full bg-slate-50">
 
-    <!-- ==========================================
-         MOBILE HEADER
-    =========================================== -->
     <div class="sticky top-0 z-40 flex items-center justify-between gap-3 bg-slate-900 px-4 py-3 lg:hidden">
-      <!-- Brand -->
       <span class="min-w-0 truncate text-sm font-bold tracking-tight text-white">
         Seller Product Management
       </span>
 
-      <!-- Hamburger -->
       <button
         type="button"
         @click="mobileMenuOpen = !mobileMenuOpen"
@@ -19,7 +14,6 @@
         :aria-expanded="mobileMenuOpen"
         aria-controls="mobile-navigation"
       >
-        <!-- Hamburger icon -->
         <svg
           v-if="!mobileMenuOpen"
           class="h-6 w-6"
@@ -35,7 +29,6 @@
           />
         </svg>
 
-        <!-- Close icon -->
         <svg
           v-else
           class="h-6 w-6"
@@ -53,26 +46,21 @@
       </button>
     </div>
 
-    <!-- ==========================================
-         MOBILE MENU OVERLAY
-    =========================================== -->
+    <!-- Mobile navigation drawer -->
     <div
       v-if="mobileMenuOpen"
       class="fixed inset-0 z-50 lg:hidden"
     >
-      <!-- Backdrop -->
       <div
         class="absolute inset-0 bg-slate-900/60"
         @click="mobileMenuOpen = false"
       ></div>
 
-      <!-- Drawer -->
       <nav
         id="mobile-navigation"
         aria-label="Mobile navigation"
         class="fixed inset-y-0 left-0 z-10 flex w-64 max-w-[calc(100vw-2rem)] flex-col bg-slate-900 shadow-xl"
       >
-        <!-- Brand -->
         <div class="flex h-16 shrink-0 items-center justify-between gap-3 px-5">
           <span class="min-w-0 text-base font-bold leading-tight tracking-tight text-white">
             Seller Product Management
@@ -99,7 +87,6 @@
           </button>
         </div>
 
-        <!-- Navigation -->
         <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <ul class="space-y-1">
             <li v-for="item in navItems" :key="item.name">
@@ -120,9 +107,7 @@
             </li>
           </ul>
 
-          <!-- Bottom section -->
           <div class="mt-auto border-t border-slate-700 pt-4">
-            <!-- User -->
             <div
               v-if="authStore.user"
               class="mb-3 flex items-center gap-3 rounded-xl px-3 py-2"
@@ -138,7 +123,6 @@
               </span>
             </div>
 
-            <!-- Logout -->
             <button
               type="button"
               @click="handleLogout"
@@ -165,25 +149,20 @@
       </nav>
     </div>
 
-    <!-- ==========================================
-         DESKTOP LAYOUT
-    =========================================== -->
+    <!-- Desktop layout -->
     <div class="flex min-h-screen">
 
-      <!-- Desktop Sidebar -->
       <aside
         class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-slate-800"
       >
         <div class="flex min-h-0 flex-1 flex-col bg-slate-900">
 
-          <!-- Brand -->
           <div class="flex h-16 shrink-0 items-center px-6">
             <span class="text-base font-bold leading-tight tracking-tight text-white lg:text-lg">
               Seller Product Management
             </span>
           </div>
 
-          <!-- Navigation -->
           <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
             <ul class="space-y-1">
               <li v-for="item in navItems" :key="item.name">
@@ -203,9 +182,7 @@
               </li>
             </ul>
 
-            <!-- Bottom section -->
             <div class="mt-auto border-t border-slate-700 pt-4">
-              <!-- User -->
               <div
                 v-if="authStore.user"
                 class="mb-3 flex items-center gap-3 rounded-xl px-3 py-2"
@@ -221,7 +198,6 @@
                 </span>
               </div>
 
-              <!-- Logout -->
               <button
                 type="button"
                 @click="handleLogout"
@@ -248,7 +224,6 @@
         </div>
       </aside>
 
-      <!-- Main Content -->
       <main class="min-w-0 w-full flex-1 lg:pl-64">
         <router-view />
       </main>
@@ -268,24 +243,12 @@ const authStore = useAuthStore();
 const mobileMenuOpen = ref(false);
 const loggingOut = ref(false);
 
-/*
-|--------------------------------------------------------------------------
-| User
-|--------------------------------------------------------------------------
-*/
-
 const userInitial = computed(() => {
   const username = authStore.user?.username || '';
   return username.charAt(0).toUpperCase() || '?';
 });
 
-/*
-|--------------------------------------------------------------------------
-| Navigation
-|--------------------------------------------------------------------------
-*/
-
-// Simple inline SVG icon components
+// Inline SVG icon components
 const IconDashboard = {
   render() {
     return h('svg', {
@@ -367,12 +330,6 @@ const navItems = [
 function isActive(routeName) {
   return route.name === routeName;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Logout
-|--------------------------------------------------------------------------
-*/
 
 async function handleLogout() {
   loggingOut.value = true;

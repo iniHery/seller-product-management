@@ -1,11 +1,9 @@
-// src/views/LoginView.vue
 <template>
   <div class="min-h-screen bg-slate-50 px-4 py-6 sm:px-6">
     <div class="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
       <div
         class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8"
       >
-        <!-- Branding -->
         <div class="mb-8 text-center">
           <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             Seller Product Management
@@ -16,7 +14,6 @@
           </p>
         </div>
 
-        <!-- Login Header -->
         <div class="mb-6">
           <h2 class="text-xl font-semibold text-slate-900">
             Login
@@ -28,7 +25,6 @@
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-5">
-          <!-- Username -->
           <div>
             <label
               for="username"
@@ -48,7 +44,6 @@
             />
           </div>
 
-          <!-- Password -->
           <div>
             <label
               for="password"
@@ -68,7 +63,6 @@
             />
           </div>
 
-          <!-- Error -->
           <div
             v-if="errorMessage"
             class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -76,7 +70,6 @@
             {{ errorMessage }}
           </div>
 
-          <!-- Login Button -->
           <button
             type="submit"
             :disabled="loading"
@@ -135,11 +128,6 @@ async function handleLogin() {
 
     router.push({ name: 'Dashboard' });
   } catch (e) {
-    console.error('Login error:', e);
-    console.dir(e);
-    console.log('Request URL was:', e.config?.url);
-    console.log('Base URL was:', e.config?.baseURL);
-    // Show more specific error if available
     if (e.response && e.response.data) {
       errorMessage.value = e.response.data.detail || JSON.stringify(e.response.data);
     } else {

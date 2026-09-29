@@ -1,7 +1,6 @@
 <template>
   <div class="min-h-screen w-full bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 sm:py-8 lg:px-8">
     <div class="mx-auto w-full min-w-0 max-w-7xl">
-      <!-- Header -->
       <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div class="min-w-0">
           <h1 class="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
@@ -27,7 +26,6 @@
         </button>
       </div>
 
-      <!-- Notifications -->
       <div v-if="error" role="alert" class="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5">
         <div class="flex items-start gap-3">
           <div class="shrink-0">
@@ -41,7 +39,6 @@
         </div>
       </div>
 
-      <!-- Loading State -->
       <div
         v-if="loading"
         class="flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-12 shadow-sm"
@@ -55,9 +52,7 @@
         <span class="text-sm font-medium text-slate-500">Loading statistics...</span>
       </div>
 
-      <!-- Stats Grid -->
       <div v-else-if="stats" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-        <!-- Total Products -->
         <div class="flex h-full min-h-32 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex w-full items-center p-5 sm:p-6">
             <div class="flex min-w-0 flex-1 items-center gap-4">
@@ -78,7 +73,6 @@
           </div>
         </div>
 
-        <!-- Active Products -->
         <div class="flex h-full min-h-32 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex w-full items-center p-5 sm:p-6">
             <div class="flex min-w-0 flex-1 items-center gap-4">
@@ -99,7 +93,6 @@
           </div>
         </div>
 
-        <!-- Inactive Products -->
         <div class="flex h-full min-h-32 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex w-full items-center p-5 sm:p-6">
             <div class="flex min-w-0 flex-1 items-center gap-4">
@@ -120,7 +113,6 @@
           </div>
         </div>
 
-        <!-- Total Stock -->
         <div class="flex h-full min-h-32 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div class="flex w-full items-center p-5 sm:p-6">
             <div class="flex min-w-0 flex-1 items-center gap-4">

@@ -2,9 +2,7 @@
   <div class="min-h-screen bg-slate-50 text-slate-900">
     <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
-      <!-- ========================================
-           PAGE HEADER
-      ========================================= -->
+      <!-- Page header -->
       <div
         class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
@@ -28,9 +26,7 @@
         </button>
       </div>
 
-      <!-- ========================================
-           SUCCESS MESSAGE
-      ========================================= -->
+      <!-- Success message -->
       <div
         v-if="successMessage"
         class="mb-6 flex items-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
@@ -38,9 +34,7 @@
         {{ successMessage }}
       </div>
 
-      <!-- ========================================
-           ERROR MESSAGE
-      ========================================= -->
+      <!-- Error message -->
       <div
         v-if="errorMessage"
         class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
@@ -48,9 +42,7 @@
         {{ errorMessage }}
       </div>
 
-      <!-- ========================================
-           ADD / EDIT CATEGORY FORM
-      ========================================= -->
+      <!-- Add/edit category form -->
       <div
         v-if="showForm"
         class="mb-6 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:max-w-3xl"
@@ -60,7 +52,6 @@
         </h2>
 
         <form @submit.prevent="handleSubmit">
-          <!-- Category Name -->
           <div class="mb-5">
             <label
               for="categoryName"
@@ -86,7 +77,6 @@
             </p>
           </div>
 
-          <!-- Form Buttons -->
           <div class="flex flex-col-reverse gap-3 sm:flex-row">
             <button
               type="submit"
@@ -113,20 +103,16 @@
         </form>
       </div>
 
-      <!-- ========================================
-           DELETE CONFIRMATION MODAL
-      ========================================= -->
+      <!-- Delete confirmation modal -->
       <div
         v-if="showDeleteModal"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <!-- Backdrop -->
         <div
           class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] transition-opacity"
           @click="!deleting && cancelDelete()"
         ></div>
 
-        <!-- Modal Panel -->
         <div
           class="relative max-h-[calc(100vh-2rem)] w-full max-w-md transform overflow-y-auto rounded-2xl bg-white p-5 text-left shadow-xl transition-all sm:p-6"
         >
@@ -160,14 +146,11 @@
         </div>
       </div>
 
-      <!-- ========================================
-           CATEGORY TABLE
-      ========================================= -->
+      <!-- Category table -->
       <div
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
       >
 
-        <!-- Loading State -->
         <div
           v-if="loading"
           class="flex min-h-70 items-center justify-center px-4 sm:min-h-75"
@@ -183,7 +166,6 @@
           </div>
         </div>
 
-        <!-- Empty State -->
         <div
           v-else-if="categories.length === 0"
           class="flex min-h-70 items-center justify-center px-5 py-10 sm:min-h-75 sm:px-6 sm:py-12"
@@ -227,14 +209,12 @@
           </div>
         </div>
 
-        <!-- Table -->
         <div
           v-else
           class="overflow-x-auto"
         >
           <table class="min-w-160 divide-y divide-slate-200 lg:min-w-full">
 
-            <!-- Table Head -->
             <thead class="bg-slate-50">
               <tr>
                 <th
@@ -267,7 +247,6 @@
               </tr>
             </thead>
 
-            <!-- Table Body -->
             <tbody class="divide-y divide-slate-200 bg-white">
               <tr
                 v-for="category in categories"
@@ -275,22 +254,18 @@
                 class="transition hover:bg-slate-50"
               >
 
-                <!-- Name -->
                 <td class="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-900 sm:px-5 lg:px-6">
                   {{ category.name }}
                 </td>
 
-                <!-- Created At -->
                 <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
                   {{ formatDate(category.created_at) }}
                 </td>
 
-                <!-- Updated At -->
                 <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
                   {{ formatDate(category.updated_at) }}
                 </td>
 
-                <!-- Actions -->
                 <td class="px-4 py-4 text-right sm:px-5 lg:px-6">
                   <div class="flex flex-wrap items-center justify-end gap-2">
                     <button
@@ -328,11 +303,7 @@ import {
   deleteCategory,
 } from '@/api/categoryService';
 
-/*
-|--------------------------------------------------------------------------
-| State
-|--------------------------------------------------------------------------
-*/
+// State
 
 const categories = ref([]);
 
@@ -341,23 +312,17 @@ const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 
-// Form state
 const showForm = ref(false);
 const editingCategory = ref(null);
 const formName = ref('');
 const formError = ref('');
 const submitting = ref(false);
 
-// Delete state
 const showDeleteModal = ref(false);
 const categoryToDelete = ref(null);
 const deleting = ref(false);
 
-/*
-|--------------------------------------------------------------------------
-| Fetch Categories
-|--------------------------------------------------------------------------
-*/
+// Fetch categories
 
 async function fetchCategories() {
   loading.value = true;
@@ -382,11 +347,7 @@ async function fetchCategories() {
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| Add / Edit Category
-|--------------------------------------------------------------------------
-*/
+// Add/edit category
 
 function openCreateForm() {
   errorMessage.value = '';
@@ -417,7 +378,6 @@ function closeForm() {
 async function handleSubmit() {
   formError.value = '';
 
-  // Validate
   const trimmedName = formName.value.trim();
   if (!trimmedName) {
     formError.value = 'Category name is required.';
@@ -429,7 +389,6 @@ async function handleSubmit() {
 
   try {
     if (editingCategory.value) {
-      // Update
       await updateCategory(editingCategory.value.id, { name: trimmedName });
 
       showForm.value = false;
@@ -438,7 +397,6 @@ async function handleSubmit() {
 
       successMessage.value = 'Category updated successfully.';
     } else {
-      // Create
       await createCategory({ name: trimmedName });
 
       showForm.value = false;
@@ -455,12 +413,10 @@ async function handleSubmit() {
   } catch (error) {
     console.error('Failed to save category:', error);
 
-    // Try to extract API error message
     const data = error.response?.data;
     if (data?.detail) {
       errorMessage.value = data.detail;
     } else if (data?.name) {
-      // DRF field-level error for 'name'
       const nameErrors = Array.isArray(data.name) ? data.name : [data.name];
       formError.value = nameErrors.join(' ');
     } else {
@@ -471,11 +427,7 @@ async function handleSubmit() {
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| Delete Category
-|--------------------------------------------------------------------------
-*/
+// Delete category
 
 function confirmDelete(category) {
   categoryToDelete.value = category;
@@ -521,11 +473,7 @@ async function handleDelete() {
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| Helpers
-|--------------------------------------------------------------------------
-*/
+// Helpers
 
 function formatDate(dateString) {
   if (!dateString) return '-';
@@ -542,11 +490,7 @@ function formatDate(dateString) {
   });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Lifecycle
-|--------------------------------------------------------------------------
-*/
+// Lifecycle
 
 onMounted(async () => {
   await fetchCategories();
