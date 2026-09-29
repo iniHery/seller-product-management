@@ -690,6 +690,7 @@ const products = ref([]);
 const categories = ref([]);
 
 const loading = ref(false);
+let productsRequestId = 0;
 
 const errorMessage = ref('');
 const successMessage = ref('');
@@ -728,6 +729,7 @@ const pagination = ref({
 */
 
 async function fetchProducts(page = 1) {
+  const requestId = ++productsRequestId;
   loading.value = true;
   errorMessage.value = '';
 
@@ -749,6 +751,7 @@ async function fetchProducts(page = 1) {
     }
 
     const response = await getProducts(params);
+    if (requestId !== productsRequestId) return;
 
     const responseData = response.data?.data;
 
@@ -763,6 +766,7 @@ async function fetchProducts(page = 1) {
     currentPage.value = page;
   } catch (error) {
     console.error('Failed to fetch products:', error);
+    if (requestId !== productsRequestId) return;
 
     if (error.response?.data?.detail) {
       errorMessage.value = error.response.data.detail;
@@ -778,7 +782,9 @@ async function fetchProducts(page = 1) {
       previous: null,
     };
   } finally {
-    loading.value = false;
+    if (requestId === productsRequestId) {
+      loading.value = false;
+    }
   }
 }
 
@@ -797,6 +803,7 @@ async function fetchCategories() {
     console.error('Failed to fetch categories:', error);
 
     categories.value = [];
+    errorMessage.value = error.response?.data?.detail || 'Failed to load categories.';
   }
 }
 

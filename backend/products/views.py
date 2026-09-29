@@ -77,6 +77,8 @@ class ProductAPIView(APIView):
         if status_param:
             products = products.filter(status=status_param)
 
+        products = products.order_by('-created_at', '-id')
+
         # ----- Pagination (Task 27.4) -----
         from .pagination import ProductPagination
         paginator = ProductPagination()
