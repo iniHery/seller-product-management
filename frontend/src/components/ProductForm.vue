@@ -4,14 +4,14 @@
   >
     <div class="mb-6 border-b border-slate-200 pb-4">
       <h2 class="text-xl font-bold text-slate-900">
-        {{ isEditMode ? 'Edit Product' : 'Add Product' }}
+        {{ isEditMode ? 'Edit Produk' : 'Tambah Produk' }}
       </h2>
 
       <p class="mt-1 text-sm text-slate-500">
         {{
           isEditMode
-            ? 'Update your product information.'
-            : 'Create a new product for your seller account.'
+            ? 'Perbarui informasi produk Anda.'
+            : 'Buat produk baru untuk akun penjual Anda.'
         }}
       </p>
     </div>
@@ -32,14 +32,14 @@
           for="product-name"
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
-          Product Name
+          Nama Produk
         </label>
 
         <input
           id="product-name"
           v-model="form.name"
           type="text"
-          placeholder="Enter product name"
+          placeholder="Masukkan nama produk"
           class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
           :class="
             fieldErrors.name
@@ -68,7 +68,7 @@
           id="product-sku"
           v-model="form.sku"
           type="text"
-          placeholder="Enter product SKU"
+          placeholder="Masukkan SKU produk"
           class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
           :class="
             fieldErrors.sku
@@ -90,7 +90,7 @@
           for="product-category"
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
-          Category
+          Kategori
         </label>
 
         <div class="relative">
@@ -108,8 +108,8 @@
             <option value="">
               {{
                 categoriesLoading
-                  ? 'Loading categories...'
-                  : 'Select category'
+                  ? 'Memuat kategori...'
+                  : 'Pilih kategori'
               }}
             </option>
 
@@ -154,7 +154,7 @@
             for="product-price"
             class="mb-2 block text-sm font-semibold text-slate-700"
           >
-            Price
+            Harga
           </label>
 
           <input
@@ -185,7 +185,7 @@
             for="product-stock"
             class="mb-2 block text-sm font-semibold text-slate-700"
           >
-            Stock
+            Stok
           </label>
 
           <input
@@ -226,11 +226,11 @@
           class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm outline-none transition hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
         >
           <option value="active">
-            Active
+            Aktif
           </option>
 
           <option value="inactive">
-            Inactive
+            Tidak Aktif
           </option>
         </select>
       </div>
@@ -240,14 +240,14 @@
           for="product-description"
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
-          Description
+          Deskripsi
         </label>
 
         <textarea
           id="product-description"
           v-model="form.description"
           rows="4"
-          placeholder="Enter product description"
+          placeholder="Masukkan deskripsi produk"
           class="block w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
         ></textarea>
       </div>
@@ -261,7 +261,7 @@
           class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleCancel"
         >
-          Cancel
+          Batal
         </button>
 
         <button
@@ -269,7 +269,7 @@
           :disabled="submitting || categoriesLoading"
           class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {{ submitting ? 'Saving...' : isEditMode ? 'Save Changes' : 'Save Product' }}
+          {{ submitting ? 'Menyimpan...' : isEditMode ? 'Simpan Perubahan' : 'Simpan Produk' }}
         </button>
       </div>
     </form>
@@ -376,7 +376,7 @@ function handleApiError(error) {
   const responseData = error.response?.data;
 
   if (!responseData) {
-    errorMessage.value = 'Failed to save product.';
+    errorMessage.value = 'Gagal menyimpan produk.';
     return;
   }
 
@@ -402,7 +402,7 @@ function handleApiError(error) {
   }
 
   if (Object.keys(fieldErrors).length === 0 && !errorMessage.value) {
-    errorMessage.value = 'Failed to save product.';
+    errorMessage.value = 'Gagal menyimpan produk.';
   }
 }
 
@@ -416,7 +416,7 @@ async function fetchCategories() {
   } catch (error) {
     console.error('Failed to fetch categories:', error);
 
-    errorMessage.value = 'Failed to load categories.';
+    errorMessage.value = 'Gagal memuat kategori.';
   } finally {
     categoriesLoading.value = false;
   }
@@ -428,17 +428,17 @@ function validateForm() {
   let valid = true;
 
   if (!form.name.trim()) {
-    fieldErrors.name = 'Product name is required.';
+    fieldErrors.name = 'Nama produk wajib diisi.';
     valid = false;
   }
 
   if (!form.sku.trim()) {
-    fieldErrors.sku = 'SKU is required.';
+    fieldErrors.sku = 'SKU wajib diisi.';
     valid = false;
   }
 
   if (!form.category_id) {
-    fieldErrors.category_id = 'Category is required.';
+    fieldErrors.category_id = 'Kategori wajib diisi.';
     valid = false;
   }
 
@@ -447,7 +447,7 @@ function validateForm() {
     form.price === null ||
     Number(form.price) < 0
   ) {
-    fieldErrors.price = 'Price must be 0 or greater.';
+    fieldErrors.price = 'Harga harus 0 atau lebih besar.';
     valid = false;
   }
 
@@ -456,7 +456,7 @@ function validateForm() {
     form.stock === null ||
     Number(form.stock) < 0
   ) {
-    fieldErrors.stock = 'Stock must be 0 or greater.';
+    fieldErrors.stock = 'Stok harus 0 atau lebih besar.';
     valid = false;
   }
 
@@ -502,8 +502,8 @@ async function handleSubmit() {
     }
 
     errorMessage.value = isEditMode.value
-      ? 'Failed to update product.'
-      : 'Failed to create product.';
+      ? 'Gagal memperbarui produk.'
+      : 'Gagal membuat produk.';
   } catch (error) {
     console.error(
       isEditMode.value

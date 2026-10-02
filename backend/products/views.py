@@ -4,14 +4,16 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
 from .models import Category, Product
 from .pagination import ProductPagination
 from .serializers import CategorySerializer, ProductSerializer
+from django.db.models import ProtectedError
 
 
 class CategoryAPIView(APIView):
     """GET: list categories, POST: create a new category"""
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         categories = Category.objects.all()
@@ -33,6 +35,8 @@ class CategoryAPIView(APIView):
 
 class CategoryDetailAPIView(APIView):
     """GET: retrieve a single category by UUID"""
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, id, *args, **kwargs):
         category = get_object_or_404(Category, pk=id)
@@ -65,9 +69,17 @@ class CategoryDetailAPIView(APIView):
         )
 
     def delete(self, request, id, *args, **kwargs):
-        """Delete a category by UUID"""
-        category = get_object_or_404(Category, pk=id)
-        category.delete()
+        try:
+            category = get_object_or_404(Category, pk=id)
+            category.delete()
+        except ProtectedError:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Category cannot be deleted because it is still used by products.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

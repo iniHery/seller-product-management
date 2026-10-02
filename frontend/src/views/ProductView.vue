@@ -89,7 +89,7 @@ async function fetchProducts(page = 1) {
     if (error.response?.data?.detail) {
       errorMessage.value = error.response.data.detail;
     } else {
-      errorMessage.value = 'Failed to load products.';
+      errorMessage.value = 'Gagal memuat produk.';
     }
 
     products.value = [];
@@ -117,7 +117,7 @@ async function fetchCategories() {
     console.error('Failed to fetch categories:', error);
 
     categories.value = [];
-    errorMessage.value = error.response?.data?.detail || 'Failed to load categories.';
+    errorMessage.value = error.response?.data?.detail || 'Gagal memuat kategori.';
   }
 }
 
@@ -161,7 +161,7 @@ async function openProductDetail(product) {
   try {
     const response = await getProduct(product.id);
     if (response.data?.success === false) {
-      throw new Error(response.data.detail || 'Failed to load product details.');
+      throw new Error(response.data.detail || 'Gagal memuat detail produk.');
     }
     if (requestId === detailRequestId) {
       detailProduct.value = response.data?.data || response.data;
@@ -169,7 +169,7 @@ async function openProductDetail(product) {
   } catch (error) {
     console.error('Failed to fetch product details:', error);
     if (requestId === detailRequestId) {
-      detailError.value = error.response?.data?.detail || error.message || 'Failed to load product details.';
+      detailError.value = error.response?.data?.detail || error.message || 'Gagal memuat detail produk.';
     }
   } finally {
     if (requestId === detailRequestId) {
@@ -200,7 +200,7 @@ function closeProductForm() {
 
 async function handleProductCreated() {
   showProductForm.value = false;
-  successMessage.value = 'Product created successfully.';
+  successMessage.value = 'Produk berhasil dibuat.';
 
   await fetchProducts(1);
 
@@ -226,7 +226,7 @@ async function handleProductUpdated() {
   showProductForm.value = false;
   editingProduct.value = null;
 
-  successMessage.value = 'Product updated successfully.';
+  successMessage.value = 'Produk berhasil diperbarui.';
 
   await fetchProducts(currentPage.value);
 
@@ -258,7 +258,7 @@ async function handleDelete() {
     await deleteProduct(productToDelete.value.id);
 
     showDeleteModal.value = false;
-    successMessage.value = 'Product deleted successfully.';
+    successMessage.value = 'Produk berhasil dihapus.';
 
     if (products.value.length === 1 && currentPage.value > 1) {
       await fetchProducts(currentPage.value - 1);
@@ -275,7 +275,7 @@ async function handleDelete() {
     if (error.response?.data?.detail) {
       errorMessage.value = error.response.data.detail;
     } else {
-      errorMessage.value = 'Failed to delete product.';
+      errorMessage.value = 'Gagal menghapus produk.';
     }
 
     showDeleteModal.value = false;
@@ -330,11 +330,11 @@ onMounted(async () => {
       >
         <div>
           <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Products
+            Produk
           </h1>
 
           <p class="mt-1 text-sm text-slate-500 sm:text-base">
-            Manage your products
+            Kelola produk Anda
           </p>
         </div>
 
@@ -344,7 +344,7 @@ onMounted(async () => {
           class="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 sm:w-auto sm:px-5"
         >
           <span class="mr-2 text-base leading-none">+</span>
-          Add Product
+          Tambah Produk
         </button>
       </div>
 
@@ -402,10 +402,10 @@ onMounted(async () => {
                 id="product-detail-title"
                 class="text-xl font-bold text-slate-900"
               >
-                Product Details
+                Detail Produk
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                Product information
+                Informasi produk
               </p>
             </div>
             <button
@@ -440,7 +440,7 @@ onMounted(async () => {
               aria-hidden="true"
             ></div>
             <p class="text-sm font-medium text-slate-500">
-              Loading product details...
+              Memuat detail produk...
             </p>
           </div>
 
@@ -458,7 +458,7 @@ onMounted(async () => {
           >
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Name
+                Nama
               </dt>
               <dd class="mt-1 wrap-break-word text-sm font-semibold text-slate-900">
                 {{ detailProduct.name || '-' }}
@@ -474,7 +474,7 @@ onMounted(async () => {
             </div>
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Category
+                Kategori
               </dt>
               <dd class="mt-1 wrap-break-word text-sm text-slate-900">
                 {{ detailProduct.category?.name || '-' }}
@@ -482,7 +482,7 @@ onMounted(async () => {
             </div>
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Price
+                Harga
               </dt>
               <dd class="mt-1 text-sm font-semibold text-slate-900">
                 {{ formatPrice(detailProduct.price) }}
@@ -490,7 +490,7 @@ onMounted(async () => {
             </div>
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Stock
+                Stok
               </dt>
               <dd class="mt-1 text-sm text-slate-900">
                 {{ detailProduct.stock ?? '-' }}
@@ -513,7 +513,7 @@ onMounted(async () => {
             </div>
             <div class="rounded-xl bg-slate-50 p-4 sm:col-span-2">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Description
+                Deskripsi
               </dt>
               <dd class="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6 text-slate-700">
                 {{ detailProduct.description || '-' }}
@@ -521,7 +521,7 @@ onMounted(async () => {
             </div>
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Created At
+                Dibuat Pada
               </dt>
               <dd class="mt-1 wrap-break-word text-sm text-slate-700">
                 {{ formatDate(detailProduct.created_at) }}
@@ -529,7 +529,7 @@ onMounted(async () => {
             </div>
             <div class="min-w-0 rounded-xl bg-slate-50 p-4">
               <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Updated At
+                Diperbarui Pada
               </dt>
               <dd class="mt-1 wrap-break-word text-sm text-slate-700">
                 {{ formatDate(detailProduct.updated_at) }}
@@ -543,7 +543,7 @@ onMounted(async () => {
               @click="closeProductDetail"
               class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto"
             >
-              Close
+              Tutup
             </button>
           </div>
         </section>
@@ -564,10 +564,10 @@ onMounted(async () => {
         >
           <div class="mb-5">
             <h3 class="text-lg font-bold text-slate-900">
-              Delete Product?
+              Hapus Produk?
             </h3>
             <p class="mt-2 text-sm leading-6 text-slate-500">
-              Are you sure you want to delete <span class="font-semibold text-slate-900">{{ productToDelete?.name }}</span>? This action cannot be undone.
+              Apakah Anda yakin ingin menghapus <span class="font-semibold text-slate-900">{{ productToDelete?.name }}</span>? Tindakan ini tidak dapat dibatalkan.
             </p>
           </div>
 
@@ -578,7 +578,7 @@ onMounted(async () => {
               :disabled="deleting"
               class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              Batal
             </button>
             <button
               type="button"
@@ -586,7 +586,7 @@ onMounted(async () => {
               :disabled="deleting"
               class="inline-flex w-full justify-center rounded-xl border border-transparent bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {{ deleting ? 'Deleting...' : 'Delete Product' }}
+              {{ deleting ? 'Menghapus...' : 'Hapus Produk' }}
             </button>
           </div>
         </div>
@@ -598,11 +598,11 @@ onMounted(async () => {
       >
         <div class="mb-5">
           <h2 class="text-lg font-semibold text-slate-900">
-            Search & Filter
+            Cari & Filter
           </h2>
 
           <p class="mt-1 text-sm text-slate-500">
-            Search products by name or SKU and filter by category or status.
+            Cari produk berdasarkan nama atau SKU dan filter berdasarkan kategori atau status.
           </p>
         </div>
 
@@ -612,14 +612,14 @@ onMounted(async () => {
               for="search"
               class="mb-2 block text-sm font-semibold text-slate-700"
             >
-              Search
+              Cari
             </label>
 
             <input
               id="search"
               v-model="searchInput"
               type="text"
-              placeholder="Search by name or SKU..."
+              placeholder="Cari berdasarkan nama atau SKU..."
               class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
               @keyup.enter="handleSearch"
             />
@@ -630,7 +630,7 @@ onMounted(async () => {
               for="category"
               class="mb-2 block text-sm font-semibold text-slate-700"
             >
-              Category
+              Kategori
             </label>
 
             <div class="relative">
@@ -644,7 +644,7 @@ onMounted(async () => {
                   value=""
                   class="bg-white text-slate-900"
                 >
-                  All Categories
+                  Semua Kategori
                 </option>
 
                 <option
@@ -696,21 +696,21 @@ onMounted(async () => {
                   value=""
                   class="bg-white text-slate-900"
                 >
-                  All Status
+                  Semua Status
                 </option>
 
                 <option
                   value="active"
                   class="bg-white text-slate-900"
                 >
-                  Active
+                  Aktif
                 </option>
 
                 <option
                   value="inactive"
                   class="bg-white text-slate-900"
                 >
-                  Inactive
+                  Tidak Aktif
                 </option>
               </select>
 
@@ -742,7 +742,7 @@ onMounted(async () => {
             :disabled="loading"
             class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Search
+            Cari
           </button>
 
           <button
@@ -770,7 +770,7 @@ onMounted(async () => {
             ></div>
 
             <p class="text-sm font-medium text-slate-500">
-              Loading products...
+              Memuat produk...
             </p>
           </div>
         </div>
@@ -800,11 +800,11 @@ onMounted(async () => {
             </div>
 
             <h2 class="text-lg font-semibold text-slate-900">
-              No products found
+              Tidak ada produk ditemukan
             </h2>
 
             <p class="mt-2 text-sm leading-6 text-slate-500">
-              There are no products matching your current search or filter.
+              Tidak ada produk yang cocok dengan pencarian atau filter Anda saat ini.
             </p>
 
             <button
@@ -812,7 +812,7 @@ onMounted(async () => {
               @click="openCreateProduct"
               class="mt-5 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              + Add Product
+              + Tambah Produk
             </button>
           </div>
         </div>
@@ -822,25 +822,25 @@ onMounted(async () => {
             <thead class="bg-slate-50">
               <tr>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Product
+                  Produk
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
                   SKU
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Category
+                  Kategori
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Price
+                  Harga
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Stock
+                  Stok
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
                   Status
                 </th>
                 <th scope="col" class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Actions
+                  Aksi
                 </th>
               </tr>
             </thead>
@@ -887,14 +887,14 @@ onMounted(async () => {
                     v-if="product.status === 'active'"
                     class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"
                   >
-                    Active
+                    Aktif
                   </span>
 
                   <span
                     v-else
                     class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
                   >
-                    Inactive
+                    Tidak Aktif
                   </span>
                 </td>
 
@@ -905,7 +905,7 @@ onMounted(async () => {
                       @click="openProductDetail(product)"
                       class="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:px-3 sm:text-sm"
                     >
-                      View
+                      Lihat
                     </button>
                     <button
                       type="button"
@@ -919,7 +919,7 @@ onMounted(async () => {
                       @click="confirmDelete(product)"
                       class="rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-700 transition hover:bg-red-100 hover:text-red-800 sm:px-3 sm:text-sm"
                     >
-                      Delete
+                      Hapus
                     </button>
                   </div>
                 </td>
@@ -933,7 +933,7 @@ onMounted(async () => {
           class="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6"
         >
           <p class="text-sm text-slate-500">
-            Total products:
+            Total produk:
             <span class="font-semibold text-slate-800">
               {{ pagination.count }}
             </span>
@@ -946,11 +946,11 @@ onMounted(async () => {
               :disabled="!pagination.previous || loading"
               class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Previous
+              Sebelumnya
             </button>
 
             <span class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700">
-              Page {{ currentPage }}
+              Halaman {{ currentPage }}
             </span>
 
             <button
@@ -959,7 +959,7 @@ onMounted(async () => {
               :disabled="!pagination.next || loading"
               class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Next
+              Selanjutnya
             </button>
           </div>
         </div>

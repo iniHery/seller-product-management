@@ -7,16 +7,16 @@
             Seller Product Management
           </h1>
           <p class="mt-2 text-sm text-slate-500">
-            Manage your products easily
+            Kelola produk Anda dengan mudah
           </p>
         </div>
 
         <div class="mb-6">
           <h2 class="text-xl font-semibold text-slate-900">
-            Register
+            Daftar
           </h2>
           <p class="mt-1 text-sm text-slate-500">
-            Create an account to get started
+            Buat akun untuk memulai
           </p>
         </div>
 
@@ -34,7 +34,7 @@
               type="text"
               required
               autocomplete="username"
-              placeholder="Enter your username"
+              placeholder="Masukkan username Anda"
               class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
           </div>
@@ -52,7 +52,7 @@
               type="email"
               required
               autocomplete="email"
-              placeholder="Enter your email"
+              placeholder="Masukkan email Anda"
               class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
           </div>
@@ -62,7 +62,7 @@
               for="password"
               class="mb-2 block text-sm font-medium text-slate-700"
             >
-              Password
+              Kata Sandi
             </label>
             <input
               id="password"
@@ -70,7 +70,7 @@
               type="password"
               required
               autocomplete="new-password"
-              placeholder="Create a password"
+              placeholder="Buat kata sandi"
               class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
           </div>
@@ -97,18 +97,18 @@
             :disabled="loading"
             class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span v-if="loading">Creating account...</span>
-            <span v-else>Register</span>
+            <span v-if="loading">Membuat akun...</span>
+            <span v-else>Daftar</span>
           </button>
         </form>
 
         <p class="mt-6 text-center text-sm text-slate-500">
-          Already have an account?
+          Sudah punya akun?
           <RouterLink
             :to="{ name: 'Login' }"
             class="font-semibold text-slate-900 underline-offset-4 hover:underline"
           >
-            Login
+            Masuk
           </RouterLink>
         </p>
       </div>
@@ -152,7 +152,7 @@ function getErrorMessage(data) {
     }
   }
 
-  return 'Registration failed. Please check your information and try again.';
+  return 'Pendaftaran gagal. Silakan periksa informasi Anda dan coba lagi.';
 }
 
 async function handleRegister() {
@@ -172,7 +172,7 @@ async function handleRegister() {
       return;
     }
 
-    successMessage.value = 'Registration successful. Redirecting to login...';
+    successMessage.value = 'Pendaftaran berhasil. Mengalihkan ke halaman masuk...';
     window.setTimeout(() => {
       router.push({ name: 'Login' });
     }, 1000);

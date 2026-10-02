@@ -10,7 +10,7 @@
         type="button"
         @click="mobileMenuOpen = !mobileMenuOpen"
         class="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-        :aria-label="mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'"
+        :aria-label="mobileMenuOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'"
         :aria-expanded="mobileMenuOpen"
         aria-controls="mobile-navigation"
       >
@@ -69,7 +69,7 @@
             type="button"
             @click="mobileMenuOpen = false"
             class="inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-slate-300 transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-400"
-            aria-label="Close navigation menu"
+            aria-label="Tutup menu navigasi"
           >
             <svg
               class="h-5 w-5"
@@ -142,7 +142,7 @@
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              {{ loggingOut ? 'Logging out...' : 'Logout' }}
+              {{ loggingOut ? 'Keluar...' : 'Keluar' }}
             </button>
           </div>
         </div>
@@ -217,7 +217,7 @@
                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                   />
                 </svg>
-                {{ loggingOut ? 'Logging out...' : 'Logout' }}
+                {{ loggingOut ? 'Keluar...' : 'Keluar' }}
               </button>
             </div>
           </div>
@@ -306,21 +306,21 @@ const IconCategories = {
 const navItems = [
   {
     name: 'dashboard',
-    label: 'Dashboard',
+    label: 'Dasbor',
     path: '/dashboard',
     routeName: 'Dashboard',
     icon: IconDashboard,
   },
   {
     name: 'products',
-    label: 'Products',
+    label: 'Produk',
     path: '/products',
     routeName: 'Products',
     icon: IconProducts,
   },
   {
     name: 'categories',
-    label: 'Categories',
+    label: 'Kategori',
     path: '/categories',
     routeName: 'Categories',
     icon: IconCategories,

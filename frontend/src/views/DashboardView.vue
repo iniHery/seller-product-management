@@ -4,10 +4,10 @@
       <div class="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div class="min-w-0">
           <h1 class="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
-            Dashboard
+            Dasbor
           </h1>
           <p class="mt-2 text-sm leading-6 text-slate-500 sm:text-base">
-            Overview of your product statistics.
+            Ringkasan statistik produk Anda.
           </p>
         </div>
         <button
@@ -22,7 +22,7 @@
           <svg v-else class="-ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Refresh
+          Segarkan
         </button>
       </div>
 
@@ -49,7 +49,7 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <span class="text-sm font-medium text-slate-500">Loading statistics...</span>
+        <span class="text-sm font-medium text-slate-500">Memuat statistik...</span>
       </div>
 
       <div v-else-if="stats" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
@@ -63,7 +63,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium leading-5 text-slate-500">Total Products</dt>
+                  <dt class="text-sm font-medium leading-5 text-slate-500">Total Produk</dt>
                   <dd>
                     <div class="mt-1 wrap-break-word text-2xl font-bold leading-tight tabular-nums text-slate-900 sm:text-3xl">{{ stats.total_products }}</div>
                   </dd>
@@ -83,7 +83,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium leading-5 text-slate-500">Active Products</dt>
+                  <dt class="text-sm font-medium leading-5 text-slate-500">Produk Aktif</dt>
                   <dd>
                     <div class="mt-1 wrap-break-word text-2xl font-bold leading-tight tabular-nums text-slate-900 sm:text-3xl">{{ stats.active_products }}</div>
                   </dd>
@@ -103,7 +103,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium leading-5 text-slate-500">Inactive Products</dt>
+                  <dt class="text-sm font-medium leading-5 text-slate-500">Produk Tidak Aktif</dt>
                   <dd>
                     <div class="mt-1 wrap-break-word text-2xl font-bold leading-tight tabular-nums text-slate-900 sm:text-3xl">{{ stats.inactive_products }}</div>
                   </dd>
@@ -123,7 +123,7 @@
               </div>
               <div class="min-w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium leading-5 text-slate-500">Total Stock</dt>
+                  <dt class="text-sm font-medium leading-5 text-slate-500">Total Stok</dt>
                   <dd>
                     <div class="mt-1 wrap-break-word text-2xl font-bold leading-tight tabular-nums text-slate-900 sm:text-3xl">{{ stats.total_stock }}</div>
                   </dd>
@@ -153,10 +153,10 @@ const fetchDashboardStats = async () => {
     if (response.data && response.data.success) {
       stats.value = response.data.data;
     } else {
-      error.value = 'Failed to load dashboard statistics.';
+      error.value = 'Gagal memuat statistik dasbor.';
     }
   } catch (err) {
-    error.value = err.response?.data?.detail || 'An error occurred while fetching dashboard statistics.';
+    error.value = err.response?.data?.detail || 'Terjadi kesalahan saat memuat statistik dasbor.';
   } finally {
     loading.value = false;
   }
