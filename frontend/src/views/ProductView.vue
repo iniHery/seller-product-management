@@ -341,7 +341,7 @@ onMounted(async () => {
         <button
           type="button"
           @click="openCreateProduct"
-          class="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 sm:w-auto sm:px-5"
+          class="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto sm:px-5"
         >
           <span class="mr-2 text-base leading-none">+</span>
           Tambah Produk
@@ -436,7 +436,7 @@ onMounted(async () => {
             aria-live="polite"
           >
             <div
-              class="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900"
+              class="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"
               aria-hidden="true"
             ></div>
             <p class="text-sm font-medium text-slate-500">
@@ -620,7 +620,7 @@ onMounted(async () => {
               v-model="searchInput"
               type="text"
               placeholder="Cari berdasarkan nama atau SKU..."
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
               @keyup.enter="handleSearch"
             />
           </div>
@@ -638,7 +638,7 @@ onMounted(async () => {
                 id="category"
                 v-model="categoryFilter"
                 @change="handleSearch"
-                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
               >
                 <option
                   value=""
@@ -690,7 +690,7 @@ onMounted(async () => {
                 id="status"
                 v-model="statusFilter"
                 @change="handleSearch"
-                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
               >
                 <option
                   value=""
@@ -740,7 +740,7 @@ onMounted(async () => {
             type="button"
             @click="handleSearch"
             :disabled="loading"
-            class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cari
           </button>
@@ -766,7 +766,7 @@ onMounted(async () => {
         >
           <div class="flex flex-col items-center">
             <div
-              class="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900"
+              class="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"
             ></div>
 
             <p class="text-sm font-medium text-slate-500">
@@ -810,7 +810,7 @@ onMounted(async () => {
             <button
               type="button"
               @click="openCreateProduct"
-              class="mt-5 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              class="mt-5 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
             >
               + Tambah Produk
             </button>
@@ -852,7 +852,7 @@ onMounted(async () => {
                     <button
                       type="button"
                       @click="openProductDetail(product)"
-                      class="text-left text-sm font-semibold text-slate-900 underline-offset-4 transition hover:text-slate-600 hover:underline focus:outline-none focus:ring-2 focus:ring-slate-300 sm:text-base"
+                      class="text-left text-sm font-semibold text-slate-900 underline-offset-4 transition hover:text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-300 sm:text-base"
                     >
                       {{ product.name }}
                     </button>
@@ -892,7 +892,7 @@ onMounted(async () => {
 
                   <span
                     v-else
-                    class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+                    class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
                   >
                     Tidak Aktif
                   </span>
