@@ -24,6 +24,15 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+for vercel_hostname_variable in (
+    "VERCEL_URL",
+    "VERCEL_BRANCH_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+):
+    vercel_hostname = os.environ.get(vercel_hostname_variable)
+    if vercel_hostname and vercel_hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(vercel_hostname)
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
