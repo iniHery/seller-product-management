@@ -1,5 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import EmailValidator
 from rest_framework import serializers
 
@@ -19,6 +21,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             'username': {'required': True},
             'email': {'required': True},
         }
+
+    def validate(self, attrs):
+        prospective_user = User(
+            username=attrs.get('username', ''),
+            email=attrs.get('email', ''),
+        )
+
+        try:
+            validate_password(attrs['password'], user=prospective_user)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({'password': error.messages}) from error
+
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop('password')

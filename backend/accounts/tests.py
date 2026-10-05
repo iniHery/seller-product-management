@@ -35,6 +35,37 @@ class AuthenticationTests(APITestCase):
         # password harus tersimpan dalam bentuk hashed password, bukan plaintext
         self.assertNotEqual(user.password, self.user_data["password"])
         self.assertTrue(user.check_password(self.user_data["password"]))
+        self.assertNotIn("password", response.data["data"])
+
+        login_response = self.client.post(self.login_url, {
+            "username": self.user_data["username"],
+            "password": self.user_data["password"],
+        })
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+    def test_register_rejects_weak_password(self):
+        user_data = {
+            **self.user_data,
+            "password": "short",
+        }
+
+        response = self.client.post(self.register_url, user_data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(username=user_data["username"]).exists())
+
+    def test_register_rejects_common_password(self):
+        user_data = {
+            **self.user_data,
+            "password": "password",
+        }
+
+        response = self.client.post(self.register_url, user_data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(username=user_data["username"]).exists())
 
     def test_login_success(self):
         """login dengan credential yang benar harus berhasil."""
