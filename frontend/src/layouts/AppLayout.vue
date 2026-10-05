@@ -10,6 +10,7 @@ const authStore = useAuthStore();
 const mobileMenuOpen = ref(false);
 const loggingOut = ref(false);
 const logoutError = ref('');
+const showLogoutConfirmation = ref(false);
 
 const userInitial = computed(() => {
   const username = authStore.user?.username || '';
@@ -99,15 +100,29 @@ function isActive(routeName) {
   return route.name === routeName;
 }
 
-async function handleLogout() {
+function openLogoutConfirmation() {
+  logoutError.value = '';
+  showLogoutConfirmation.value = true;
+}
+
+function cancelLogout() {
+  if (loggingOut.value) return;
+  showLogoutConfirmation.value = false;
+}
+
+async function confirmLogout() {
+  if (loggingOut.value) return;
+
   loggingOut.value = true;
   logoutError.value = '';
 
   try {
     await authStore.logout();
+    showLogoutConfirmation.value = false;
     mobileMenuOpen.value = false;
     await router.push({ name: 'Login' });
   } catch {
+    showLogoutConfirmation.value = false;
     logoutError.value = 'Gagal mengakhiri sesi di server. Anda masih masuk; periksa koneksi lalu coba lagi.';
   } finally {
     loggingOut.value = false;
@@ -243,7 +258,7 @@ async function handleLogout() {
 
             <button
               type="button"
-              @click="handleLogout"
+              @click="openLogoutConfirmation"
               :disabled="loggingOut"
               class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -318,7 +333,7 @@ async function handleLogout() {
 
               <button
                 type="button"
-                @click="handleLogout"
+                @click="openLogoutConfirmation"
                 :disabled="loggingOut"
                 class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -352,6 +367,59 @@ async function handleLogout() {
         </div>
         <router-view />
       </main>
+    </div>
+
+    <div
+      v-if="showLogoutConfirmation"
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px]"
+        aria-label="Tutup konfirmasi logout"
+        :disabled="loggingOut"
+        @click="cancelLogout"
+      ></button>
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-confirmation-title"
+        aria-describedby="logout-confirmation-description"
+        class="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6"
+      >
+        <h2
+          id="logout-confirmation-title"
+          class="text-lg font-bold text-slate-900"
+        >
+          Konfirmasi Logout
+        </h2>
+        <p
+          id="logout-confirmation-description"
+          class="mt-2 text-sm leading-6 text-slate-600"
+        >
+          Apakah Anda yakin ingin keluar dari akun ini?
+        </p>
+
+        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            @click="cancelLogout"
+            :disabled="loggingOut"
+            class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            @click="confirmLogout"
+            :disabled="loggingOut"
+            class="inline-flex w-full justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {{ loggingOut ? 'Logging out...' : 'Logout' }}
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
