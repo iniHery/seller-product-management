@@ -9,6 +9,7 @@ const authStore = useAuthStore();
 
 const mobileMenuOpen = ref(false);
 const loggingOut = ref(false);
+const logoutError = ref('');
 
 const userInitial = computed(() => {
   const username = authStore.user?.username || '';
@@ -100,15 +101,16 @@ function isActive(routeName) {
 
 async function handleLogout() {
   loggingOut.value = true;
+  logoutError.value = '';
 
   try {
     await authStore.logout();
+    mobileMenuOpen.value = false;
+    await router.push({ name: 'Login' });
   } catch {
-    // logout() in store already clears auth even on failure
+    logoutError.value = 'Gagal mengakhiri sesi di server. Anda masih masuk; periksa koneksi lalu coba lagi.';
   } finally {
     loggingOut.value = false;
-    mobileMenuOpen.value = false;
-    router.push({ name: 'Login' });
   }
 }
 </script>
@@ -341,6 +343,13 @@ async function handleLogout() {
       </aside>
 
       <main class="min-w-0 w-full flex-1 lg:pl-64">
+        <div
+          v-if="logoutError"
+          role="alert"
+          class="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 sm:mx-6 lg:mx-8"
+        >
+          {{ logoutError }}
+        </div>
         <router-view />
       </main>
     </div>

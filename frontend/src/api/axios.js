@@ -7,14 +7,40 @@ const api = axios.create({
   },
 });
 
-// Attach the token except on login and logout requests.
+function isPublicAuthenticationEndpoint(url = '') {
+  const endpoint = url.split('?')[0].replace(/\/+$/, '');
+
+  return endpoint.endsWith('auth/login') || endpoint.endsWith('auth/register');
+}
+
+// Public authentication requests should not carry a possibly stale token.
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('auth_token');
-  const isAuthEndpoint = config.url?.includes('auth/login') || config.url?.includes('auth/logout');
-  if (token && !isAuthEndpoint) {
+  const isPublicEndpoint = isPublicAuthenticationEndpoint(config.url);
+  config._authTokenAttached = Boolean(token && !isPublicEndpoint);
+
+  if (token && !isPublicEndpoint) {
     config.headers['Authorization'] = `Token ${token}`;
   }
+
   return config;
 });
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    const config = error.config;
+
+    if (
+      error.response?.status === 401 &&
+      config?._authTokenAttached &&
+      !isPublicAuthenticationEndpoint(config.url)
+    ) {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export default api;

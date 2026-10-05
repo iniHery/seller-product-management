@@ -90,7 +90,38 @@ class AuthenticationTests(APITestCase):
         response = self.client.post(self.logout_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Token.objects.filter(pk=token.pk).exists())
 
         # token yang sudah dihapus/revoke tidak boleh digunakan kembali
         response_me = self.client.get(self.me_url)
         self.assertEqual(response_me.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_without_token_rejected(self):
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_again_after_logout_creates_usable_token(self):
+        User.objects.create_user(**self.user_data)
+        credentials = {
+            "username": self.user_data["username"],
+            "password": self.user_data["password"],
+        }
+
+        first_login = self.client.post(self.login_url, credentials)
+        self.assertEqual(first_login.status_code, status.HTTP_200_OK)
+        first_token = first_login.data["data"]["token"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {first_token}")
+        logout_response = self.client.post(self.logout_url)
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+
+        self.client.credentials()
+        second_login = self.client.post(self.login_url, credentials)
+        self.assertEqual(second_login.status_code, status.HTTP_200_OK)
+        second_token = second_login.data["data"]["token"]
+        self.assertNotEqual(second_token, first_token)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {second_token}")
+        me_response = self.client.get(self.me_url)
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)

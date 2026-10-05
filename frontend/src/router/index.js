@@ -47,6 +47,25 @@ const router = createRouter({
   routes,
 });
 
+let redirectingAfterUnauthorized = false;
+
+window.addEventListener('auth:expired', () => {
+  useAuthStore().clearAuth();
+
+  if (router.currentRoute.value.name === 'Login' || redirectingAfterUnauthorized) {
+    return;
+  }
+
+  redirectingAfterUnauthorized = true;
+  router.replace({ name: 'Login' })
+    .catch(error => {
+      console.error('Failed to redirect after authentication expired:', error);
+    })
+    .finally(() => {
+      redirectingAfterUnauthorized = false;
+    });
+});
+
 router.beforeEach(async (to, from) => {
   const authStore = useAuthStore();
   const token = localStorage.getItem('auth_token');

@@ -35,11 +35,20 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       this.status = 'loading';
       try {
-        await authService.logout();
-      } catch (e) {
-        // ignore logout failure, still clear locally
+        const response = await authService.logout();
+        if (!response.data?.success) {
+          throw new Error('Server did not confirm logout.');
+        }
+        this.clearAuth();
+      } catch (error) {
+        if (error.response?.status === 401) {
+          this.clearAuth();
+          throw error;
+        }
+
+        this.status = 'error';
+        throw error;
       }
-      this.clearAuth();
     },
 
     async fetchMe() {
