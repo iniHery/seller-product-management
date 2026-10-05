@@ -177,7 +177,9 @@ async function handleRegister() {
       router.push({ name: 'Login' });
     }, 1000);
   } catch (error) {
-    console.error('Registration error:', error);
+    console.warn('Registration request failed.', {
+      status: error.response?.status ?? null,
+    });
     errorMessage.value = getErrorMessage(error.response?.data);
   } finally {
     loading.value = false;

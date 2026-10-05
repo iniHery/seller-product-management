@@ -1,4 +1,6 @@
+from django.core.cache import caches
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -6,8 +8,18 @@ from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 
+
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'accounts-auth-tests',
+        },
+    },
+)
 class AuthenticationTests(APITestCase):
     def setUp(self):
+        caches['default'].clear()
         self.register_url = reverse("register")
         self.login_url = reverse("login")
         self.me_url = reverse("me")
@@ -156,3 +168,118 @@ class AuthenticationTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {second_token}")
         me_response = self.client.get(self.me_url)
         self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+
+
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'accounts-throttle-tests',
+        },
+    },
+)
+class AuthenticationThrottleTests(APITestCase):
+    def setUp(self):
+        caches['default'].clear()
+        self.login_url = reverse('login')
+        self.register_url = reverse('register')
+        self.user = User.objects.create_user(
+            username='throttle-user',
+            email='throttle-user@example.com',
+            password='Throttle-Test-Password-123!',
+        )
+
+    def test_login_within_rate_allows_valid_and_invalid_attempts(self):
+        valid_response = self.client.post(
+            self.login_url,
+            {
+                'username': self.user.username,
+                'password': 'Throttle-Test-Password-123!',
+            },
+        )
+        invalid_responses = [
+            self.client.post(
+                self.login_url,
+                {'username': self.user.username, 'password': 'wrong'},
+            )
+            for _ in range(4)
+        ]
+
+        self.assertEqual(valid_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            all(
+                response.status_code == status.HTTP_400_BAD_REQUEST
+                for response in invalid_responses
+            )
+        )
+
+    def test_login_exceeding_rate_returns_429(self):
+        for _ in range(5):
+            response = self.client.post(
+                self.login_url,
+                {'username': self.user.username, 'password': 'wrong'},
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        throttled_response = self.client.post(
+            self.login_url,
+            {'username': self.user.username, 'password': 'wrong'},
+        )
+
+        self.assertEqual(
+            throttled_response.status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    def test_register_within_rate_allows_valid_requests(self):
+        for index in range(5):
+            response = self.client.post(
+                self.register_url,
+                {
+                    'username': f'register-user-{index}',
+                    'email': f'register-user-{index}@example.com',
+                    'password': 'Register-Test-Password-123!',
+                },
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_register_exceeding_rate_returns_429(self):
+        for index in range(5):
+            response = self.client.post(
+                self.register_url,
+                {
+                    'username': f'register-user-{index}',
+                    'email': f'register-user-{index}@example.com',
+                    'password': 'Register-Test-Password-123!',
+                },
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        throttled_response = self.client.post(
+            self.register_url,
+            {
+                'username': 'register-user-over-limit',
+                'email': 'register-user-over-limit@example.com',
+                'password': 'Register-Test-Password-123!',
+            },
+        )
+
+        self.assertEqual(
+            throttled_response.status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    def test_auth_throttles_do_not_apply_to_product_category_or_dashboard(self):
+        for _ in range(3):
+            self.client.post(
+                self.login_url,
+                {'username': self.user.username, 'password': 'wrong'},
+            )
+
+        for endpoint_name in ('product-list', 'category-list', 'dashboard'):
+            with self.subTest(endpoint=endpoint_name):
+                response = self.client.get(reverse(endpoint_name))
+                self.assertEqual(
+                    response.status_code,
+                    status.HTTP_401_UNAUTHORIZED,
+                )
