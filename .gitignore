@@ -12,3 +12,6 @@ frontend/dist/
 frontend/.env.local
 .env.local
 .neon
+
+.vercel
+.env*
