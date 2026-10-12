@@ -1,5 +1,6 @@
 from django.core.cache import caches
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
@@ -24,6 +25,7 @@ class AuthenticationTests(APITestCase):
         self.login_url = reverse("login")
         self.me_url = reverse("me")
         self.logout_url = reverse("logout")
+        self.change_password_url = reverse("change-password")
 
         self.user_data = {
             "username": "testuser",
@@ -79,6 +81,39 @@ class AuthenticationTests(APITestCase):
         self.assertIn("password", response.data)
         self.assertFalse(User.objects.filter(username=user_data["username"]).exists())
 
+    def test_register_rejects_email_already_used_with_different_case(self):
+        User.objects.create_user(
+            username="existing-user",
+            email=self.user_data["email"],
+            password="Existing-Password-123!",
+        )
+        user_data = {
+            **self.user_data,
+            "username": "new-user",
+            "email": self.user_data["email"].upper(),
+        }
+
+        response = self.client.post(self.register_url, user_data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+        self.assertFalse(User.objects.filter(username="new-user").exists())
+
+    def test_database_rejects_case_insensitive_duplicate_email(self):
+        User.objects.create_user(
+            username="existing-user",
+            email=self.user_data["email"],
+            password="Existing-Password-123!",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                User.objects.create_user(
+                    username="new-user",
+                    email=self.user_data["email"].upper(),
+                    password="New-Password-123!",
+                )
+
     def test_login_success(self):
         """login dengan credential yang benar harus berhasil."""
         # Create user first
@@ -123,6 +158,118 @@ class AuthenticationTests(APITestCase):
         """request tanpa token harus ditolak."""
         response = self.client.get(self.me_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_current_user_profile_can_be_updated(self):
+        user = User.objects.create_user(**self.user_data)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            self.me_url,
+            {"username": "updateduser", "email": "updated@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertEqual(user.username, "updateduser")
+        self.assertEqual(user.email, "updated@example.com")
+        self.assertEqual(response.data["data"]["username"], "updateduser")
+
+    def test_profile_update_rejects_duplicate_username_and_email(self):
+        User.objects.create_user(
+            username="takenuser",
+            email="taken@example.com",
+            password="Another-Test-Password-123!",
+        )
+        user = User.objects.create_user(**self.user_data)
+        self.client.force_authenticate(user=user)
+
+        username_response = self.client.patch(
+            self.me_url,
+            {"username": "takenuser"},
+            format="json",
+        )
+        email_response = self.client.patch(
+            self.me_url,
+            {"email": "taken@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(username_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(email_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_profile_update_rejects_email_used_with_different_case(self):
+        User.objects.create_user(
+            username="takenuser",
+            email="taken@example.com",
+            password="Existing-Password-123!",
+        )
+        user = User.objects.create_user(**self.user_data)
+        self.client.force_authenticate(user=user)
+
+        response = self.client.patch(
+            self.me_url,
+            {"email": "TAKEN@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
+    def test_change_password_requires_current_password_and_valid_new_password(self):
+        user = User.objects.create_user(**self.user_data)
+        token, _ = Token.objects.get_or_create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+
+        invalid_response = self.client.post(
+            self.change_password_url,
+            {
+                "current_password": "incorrect-password",
+                "new_password": "New-Strong-Password-123!",
+            },
+            format="json",
+        )
+        self.assertEqual(invalid_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        weak_response = self.client.post(
+            self.change_password_url,
+            {
+                "current_password": self.user_data["password"],
+                "new_password": "short",
+            },
+            format="json",
+        )
+        self.assertEqual(weak_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(user.check_password(self.user_data["password"]))
+
+        response = self.client.post(
+            self.change_password_url,
+            {
+                "current_password": self.user_data["password"],
+                "new_password": "New-Strong-Password-123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("New-Strong-Password-123!"))
+        self.assertFalse(Token.objects.filter(pk=token.pk).exists())
+
+        response_me = self.client.get(self.me_url)
+        self.assertEqual(response_me.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.credentials()
+        login_response = self.client.post(
+            self.login_url,
+            {
+                "username": self.user_data["username"],
+                "password": "New-Strong-Password-123!",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(login_response.data["data"]["token"], token.key)
 
     def test_logout_success(self):
         """logout dengan token harus berhasil."""

@@ -1,9 +1,14 @@
+from unittest.mock import Mock
+
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 
 from .models import Category, Product
+from .views import _save_with_seller_unique_value
 
 
 User = get_user_model()
@@ -19,7 +24,12 @@ class ProductAuthorizationTests(APITestCase):
             username="seller-b",
             password="test-password-b",
         )
-        self.category = Category.objects.create(name="Test category")
+        self.category = Category.objects.create(
+            name="Test category",
+            seller=self.seller_a,
+            created_by=self.seller_a,
+            updated_by=self.seller_a,
+        )
         self.product_a = Product.objects.create(
             seller=self.seller_a,
             category=self.category,
@@ -138,7 +148,12 @@ class ProductCRUDTests(APITestCase):
         self.seller = User.objects.create_user(
             username="seller", password="password"
         )
-        self.category = Category.objects.create(name="Electronics")
+        self.category = Category.objects.create(
+            name="Electronics",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         self.client.force_authenticate(user=self.seller)
         self.list_url = reverse("product-list")
 
@@ -201,7 +216,9 @@ class ProductCRUDTests(APITestCase):
         url = reverse("product-detail", kwargs={"id": product.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Product.objects.count(), 0)
+        product.refresh_from_db()
+        self.assertIsNotNone(product.deleted_at)
+        self.assertEqual(Product.objects.filter(deleted_at__isnull=True).count(), 0)
 
 
 class ProductValidationTests(APITestCase):
@@ -209,7 +226,12 @@ class ProductValidationTests(APITestCase):
         self.seller = User.objects.create_user(
             username="seller", password="password"
         )
-        self.category = Category.objects.create(name="Home")
+        self.category = Category.objects.create(
+            name="Home",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         self.client.force_authenticate(user=self.seller)
         self.list_url = reverse("product-list")
         self.valid_payload = {
@@ -269,8 +291,18 @@ class ProductSearchFilterPaginationTests(APITestCase):
     def setUp(self):
         self.seller = User.objects.create_user(username="seller", password="password")
         self.other_seller = User.objects.create_user(username="other", password="password")
-        self.category_a = Category.objects.create(name="Category A")
-        self.category_b = Category.objects.create(name="Category B")
+        self.category_a = Category.objects.create(
+            name="Category A",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
+        self.category_b = Category.objects.create(
+            name="Category B",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         self.client.force_authenticate(user=self.seller)
         self.list_url = reverse("product-list")
 
@@ -342,15 +374,43 @@ class CategoryCRUDTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Category.objects.count(), 1)
         self.assertEqual(Category.objects.first().name, "New Cat")
+        self.assertEqual(Category.objects.first().seller, self.seller)
+
+    def test_duplicate_category_name_is_rejected_for_same_seller(self):
+        Category.objects.create(name="Existing", seller=self.seller)
+
+        response = self.client.post(self.list_url, {"name": "Existing"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", response.data)
+        self.assertEqual(Category.objects.filter(seller=self.seller).count(), 1)
+
+    def test_category_name_can_be_reused_after_soft_delete(self):
+        category = Category.objects.create(name="Reusable", seller=self.seller)
+        category.soft_delete(self.seller)
+
+        response = self.client.post(self.list_url, {"name": "Reusable"})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_get_categories(self):
-        Category.objects.create(name="Cat 1")
+        Category.objects.create(
+            name="Cat 1",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 1)
 
     def test_update_category(self):
-        cat = Category.objects.create(name="Cat 1")
+        cat = Category.objects.create(
+            name="Cat 1",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         url = reverse("category-detail", kwargs={"id": cat.id})
         response = self.client.put(url, {"name": "Cat 2"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -358,28 +418,259 @@ class CategoryCRUDTests(APITestCase):
         self.assertEqual(cat.name, "Cat 2")
 
     def test_delete_unused_category(self):
-        cat = Category.objects.create(name="Unused")
+        cat = Category.objects.create(
+            name="Unused",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         url = reverse("category-detail", kwargs={"id": cat.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Category.objects.count(), 0)
+        cat.refresh_from_db()
+        self.assertIsNotNone(cat.deleted_at)
+        self.assertEqual(cat.deleted_by, self.seller)
+        self.assertEqual(cat.updated_by, self.seller)
+        self.assertGreaterEqual(cat.updated_at, cat.deleted_at)
+        self.assertEqual(Category.objects.filter(deleted_at__isnull=True).count(), 0)
 
     def test_delete_used_category_fails(self):
-        cat = Category.objects.create(name="Used")
+        cat = Category.objects.create(
+            name="Used",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         Product.objects.create(seller=self.seller, category=cat, name="Prod", sku="SKU1", price="1", stock=1)
         url = reverse("category-detail", kwargs={"id": cat.id})
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data["success"])
-        self.assertEqual(response.data["message"], "Category cannot be deleted because it is still used by products.")
+        self.assertEqual(
+            response.data["message"],
+            "Kategori tidak dapat dihapus karena masih digunakan produk aktif.",
+        )
         self.assertEqual(Category.objects.count(), 1)
+
+
+class ProductDataIntegrityTests(APITestCase):
+    def setUp(self):
+        self.seller_a = User.objects.create_user(
+            username="seller-a", password="password"
+        )
+        self.seller_b = User.objects.create_user(
+            username="seller-b", password="password"
+        )
+        self.category_a = Category.objects.create(
+            name="Category A",
+            seller=self.seller_a,
+            created_by=self.seller_a,
+            updated_by=self.seller_a,
+        )
+        self.category_b = Category.objects.create(
+            name="Category B",
+            seller=self.seller_b,
+            created_by=self.seller_b,
+            updated_by=self.seller_b,
+        )
+        self.products_url = reverse("product-list")
+        self.categories_url = reverse("category-list")
+
+    def product_payload(self, category_id, sku="SHARED-SKU"):
+        return {
+            "name": "Product",
+            "sku": sku,
+            "price": "10000",
+            "stock": 1,
+            "category_id": str(category_id),
+        }
+
+    def test_save_maps_concurrent_seller_unique_conflicts_to_validation_errors(self):
+        category = Category.objects.create(
+            name="Existing category",
+            seller=self.seller_a,
+        )
+        product = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category_a,
+            name="Existing product",
+            sku="EXISTING-SKU",
+            price="10.00",
+            stock=1,
+        )
+
+        cases = (
+            (
+                Category,
+                "name",
+                category.name,
+                "Nama kategori sudah digunakan pada toko Anda.",
+            ),
+            (
+                Product,
+                "sku",
+                product.sku,
+                "SKU sudah digunakan pada toko Anda.",
+            ),
+        )
+        for model, field, value, message in cases:
+            with self.subTest(model=model.__name__):
+                serializer = Mock()
+                serializer.validated_data = {field: value}
+                serializer.instance = None
+                serializer.save.side_effect = IntegrityError("unique conflict")
+
+                with self.assertRaises(ValidationError) as error:
+                    _save_with_seller_unique_value(
+                        serializer,
+                        model,
+                        self.seller_a,
+                        field,
+                        message,
+                    )
+
+                self.assertEqual(error.exception.detail[field][0], message)
+
+    def test_save_reraises_unrelated_integrity_errors(self):
+        serializer = Mock()
+        serializer.validated_data = {"sku": "UNIQUE-SKU"}
+        serializer.instance = None
+        serializer.save.side_effect = IntegrityError("unrelated integrity error")
+
+        with self.assertRaises(IntegrityError):
+            _save_with_seller_unique_value(
+                serializer,
+                Product,
+                self.seller_a,
+                "sku",
+                "SKU sudah digunakan pada toko Anda.",
+            )
+
+    def test_product_audit_fields_are_set_from_authenticated_seller(self):
+        self.client.force_authenticate(user=self.seller_a)
+
+        response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_a.id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        product = Product.objects.get(pk=response.data["data"]["id"])
+        self.assertEqual(product.created_by, self.seller_a)
+        self.assertEqual(product.updated_by, self.seller_a)
+
+    def test_seller_cannot_use_another_sellers_category(self):
+        self.client.force_authenticate(user=self.seller_a)
+
+        response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_b.id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("category_id", response.data)
+
+    def test_same_sku_is_allowed_for_different_sellers(self):
+        self.client.force_authenticate(user=self.seller_a)
+        first_response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_a.id),
+        )
+        self.client.force_authenticate(user=self.seller_b)
+        second_response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_b.id),
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+
+    def test_duplicate_sku_is_rejected_for_same_seller(self):
+        self.client.force_authenticate(user=self.seller_a)
+        self.client.post(
+            self.products_url,
+            self.product_payload(self.category_a.id),
+        )
+
+        response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_a.id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("sku", response.data)
+
+    def test_deleted_product_sku_can_be_reused(self):
+        product = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category_a,
+            name="Deleted",
+            sku="REUSABLE-SKU",
+            price="10000",
+            stock=1,
+        )
+        product.soft_delete(self.seller_a)
+        self.client.force_authenticate(user=self.seller_a)
+
+        response = self.client.post(
+            self.products_url,
+            self.product_payload(self.category_a.id, sku="REUSABLE-SKU"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_deleted_product_is_hidden_and_kept_for_audit(self):
+        product = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category_a,
+            name="To delete",
+            sku="DELETE-SKU",
+            price="10000",
+            stock=1,
+            created_by=self.seller_a,
+            updated_by=self.seller_a,
+        )
+        self.client.force_authenticate(user=self.seller_a)
+
+        response = self.client.delete(
+            reverse("product-detail", kwargs={"id": product.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        product.refresh_from_db()
+        self.assertIsNotNone(product.deleted_at)
+        self.assertEqual(product.deleted_by, self.seller_a)
+        self.assertEqual(product.updated_by, self.seller_a)
+        self.assertGreaterEqual(product.updated_at, product.deleted_at)
+        self.assertFalse(
+            Product.objects.filter(
+                seller=self.seller_a,
+                deleted_at__isnull=True,
+            ).exists()
+        )
+
+    def test_categories_are_scoped_to_the_authenticated_seller(self):
+        self.client.force_authenticate(user=self.seller_a)
+
+        response = self.client.get(self.categories_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [category["id"] for category in response.data["data"]],
+            [str(self.category_a.id)],
+        )
 
 
 class DashboardTests(APITestCase):
     def setUp(self):
         self.seller = User.objects.create_user(username="seller", password="password")
         self.other_seller = User.objects.create_user(username="other", password="password")
-        self.category = Category.objects.create(name="Cat")
+        self.category = Category.objects.create(
+            name="Cat",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
         self.dashboard_url = reverse("dashboard")
 
         Product.objects.create(seller=self.seller, category=self.category, name="P1", sku="SKU1", price="10", stock=5, status="active")

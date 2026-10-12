@@ -15,3 +15,11 @@ export function logout() {
 export function me() {
   return api.get('auth/me/');
 }
+
+export function updateProfile(profile) {
+  return api.patch('auth/me/', profile);
+}
+
+export function changePassword(passwords) {
+  return api.post('auth/change-password/', passwords);
+}

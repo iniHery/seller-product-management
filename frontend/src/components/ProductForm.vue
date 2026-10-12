@@ -10,8 +10,13 @@ import { getCategories } from '@/api/categoryService';
 
 import {
   createProduct,
+  getProduct,
   updateProduct,
 } from '@/api/productService';
+import BaseButton from '@/components/BaseButton.vue';
+import BaseInput from '@/components/BaseInput.vue';
+import BaseSelect from '@/components/BaseSelect.vue';
+import { parsePriceInput } from '@/utils/price';
 
 const props = defineProps({
   product: {
@@ -31,6 +36,8 @@ const isEditMode = computed(() => {
 
 const categories = ref([]);
 const categoriesLoading = ref(false);
+const formLoading = ref(false);
+const productLoadFailed = ref(false);
 
 const submitting = ref(false);
 const errorMessage = ref('');
@@ -47,6 +54,8 @@ const form = reactive({
   status: 'active',
 });
 
+const priceInput = ref('0');
+
 function clearErrors() {
   errorMessage.value = '';
 
@@ -55,33 +64,94 @@ function clearErrors() {
   });
 }
 
-function fillFormFromProduct() {
-  if (!props.product) {
+function formatPriceInput(value) {
+  const valueString = String(value);
+  const decimalSeparator = valueString.includes(',') ? ',' : '.';
+  const [integerPart, fractionalPart] = valueString.split(decimalSeparator);
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  return fractionalPart === undefined
+    ? groupedInteger
+    : `${groupedInteger},${fractionalPart}`;
+}
+
+function handlePriceInput(event) {
+  const input = event.target;
+  const rawValue = input.value;
+  const cursorPosition = input.selectionStart ?? rawValue.length;
+  const valueBeforeCursor = rawValue.slice(0, cursorPosition);
+  const digitsBeforeCursor = (valueBeforeCursor.match(/\d/g) || []).length;
+  const negativeSignBeforeCursor = valueBeforeCursor.trimStart().startsWith('-');
+  const parsedPrice = parsePriceInput(rawValue);
+  const hasDecimalBeforeCursor = parsedPrice.hasDecimalSeparator
+    && cursorPosition > parsedPrice.separatorIndex;
+  const decimalDigitsBeforeCursor = hasDecimalBeforeCursor
+    ? valueBeforeCursor.slice(parsedPrice.separatorIndex + 1).replace(/\D/g, '').length
+    : 0;
+
+  priceInput.value = parsedPrice.formattedValue;
+  form.price = parsedPrice.numericValue === '' ? '' : Number(parsedPrice.numericValue);
+  input.value = parsedPrice.formattedValue;
+
+  let nextCursorPosition = 0;
+  if (hasDecimalBeforeCursor && parsedPrice.formattedValue.includes(',')) {
+    nextCursorPosition = parsedPrice.formattedValue.indexOf(',') + 1 + decimalDigitsBeforeCursor;
+  } else {
+    const integerLength = parsedPrice.numericValue.replace('-', '').split('.')[0].length;
+    const integerDigitCount = Math.min(digitsBeforeCursor, integerLength);
+    nextCursorPosition = rawValue.trimStart().startsWith('-') && negativeSignBeforeCursor ? 1 : 0;
+    let matchedDigits = 0;
+    for (let index = 0; index < parsedPrice.formattedValue.length; index += 1) {
+      if (/\d/.test(parsedPrice.formattedValue[index])) {
+        matchedDigits += 1;
+        if (matchedDigits === integerDigitCount) {
+          nextCursorPosition = index + 1;
+          break;
+        }
+      }
+    }
+  }
+  if (negativeSignBeforeCursor && nextCursorPosition === 0) {
+    nextCursorPosition = 1;
+  }
+
+  input.setSelectionRange(nextCursorPosition, nextCursorPosition);
+}
+
+function handleStockStep(amount) {
+  const currentStock = Number(form.stock);
+  form.stock = Math.max(0, (Number.isFinite(currentStock) ? currentStock : 0) + amount);
+}
+
+function fillFormFromProduct(product = props.product) {
+  if (!product) {
     form.name = '';
     form.sku = '';
     form.category_id = '';
     form.description = '';
     form.price = 0;
+    priceInput.value = formatPriceInput(form.price);
     form.stock = 0;
     form.status = 'active';
 
     return;
   }
 
-  form.name = props.product.name || '';
-  form.sku = props.product.sku || '';
+  form.name = product.name || '';
+  form.sku = product.sku || '';
 
   form.category_id =
-    props.product.category?.id ||
-    props.product.category_id ||
+    product.category?.id ||
+    product.category_id ||
     '';
 
-  form.description = props.product.description || '';
+  form.description = product.description || '';
 
-  form.price = Number(props.product.price || 0);
-  form.stock = Number(props.product.stock || 0);
+  form.price = Number(product.price || 0);
+  priceInput.value = formatPriceInput(form.price);
+  form.stock = Number(product.stock || 0);
 
-  form.status = props.product.status || 'active';
+  form.status = product.status || 'active';
 }
 
 function getFirstErrorMessage(value) {
@@ -107,7 +177,7 @@ function handleApiError(error) {
     return;
   }
 
-  const data = responseData.data;
+  const data = responseData.data || responseData;
 
   if (
     data &&
@@ -144,6 +214,26 @@ async function fetchCategories() {
   }
 }
 
+async function fetchProductForEdit() {
+  formLoading.value = true;
+
+  try {
+    const response = await getProduct(props.product.id);
+    if (!response.data?.success || !response.data.data) {
+      throw new Error('Respons detail produk tidak valid.');
+    }
+
+    fillFormFromProduct(response.data.data);
+  } catch (error) {
+    console.error('Failed to load product for editing:', error);
+    productLoadFailed.value = true;
+    errorMessage.value = error.response?.data?.detail
+      || 'Gagal memuat data produk untuk diedit.';
+  } finally {
+    formLoading.value = false;
+  }
+}
+
 function validateForm() {
   clearErrors();
 
@@ -165,8 +255,9 @@ function validateForm() {
   }
 
   if (
-    form.price === '' ||
-    form.price === null ||
+    priceInput.value.trim() === '' ||
+    priceInput.value.trim().startsWith('-') ||
+    !Number.isFinite(Number(form.price)) ||
     Number(form.price) < 0
   ) {
     fieldErrors.price = 'Harga harus 0 atau lebih besar.';
@@ -176,9 +267,10 @@ function validateForm() {
   if (
     form.stock === '' ||
     form.stock === null ||
+    !Number.isInteger(Number(form.stock)) ||
     Number(form.stock) < 0
   ) {
-    fieldErrors.stock = 'Stok harus 0 atau lebih besar.';
+    fieldErrors.stock = 'Stok harus berupa bilangan bulat 0 atau lebih besar.';
     valid = false;
   }
 
@@ -245,8 +337,11 @@ function handleCancel() {
 }
 
 onMounted(async () => {
-  await fetchCategories();
   fillFormFromProduct();
+  await Promise.all([
+    fetchCategories(),
+    isEditMode.value ? fetchProductForEdit() : Promise.resolve(),
+  ]);
 });
 </script>
 
@@ -269,13 +364,44 @@ onMounted(async () => {
     </div>
 
     <div
-      v-if="errorMessage"
+      v-if="errorMessage && !productLoadFailed"
       class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
     >
       {{ errorMessage }}
     </div>
 
+    <div
+      v-if="formLoading"
+      class="flex min-h-64 flex-col items-center justify-center gap-3"
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        class="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"
+        aria-hidden="true"
+      ></div>
+      <p class="text-sm font-medium text-slate-500">
+        Memuat data produk...
+      </p>
+    </div>
+
+    <div
+      v-else-if="productLoadFailed"
+      role="alert"
+      class="flex flex-col gap-4"
+    >
+      <p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        {{ errorMessage }}
+      </p>
+      <div class="flex justify-end">
+        <BaseButton variant="secondary" @click="handleCancel">
+          Tutup
+        </BaseButton>
+      </div>
+    </div>
+
     <form
+      v-else
       class="space-y-5"
       @submit.prevent="handleSubmit"
     >
@@ -285,23 +411,21 @@ onMounted(async () => {
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
           Nama Produk
+          <span class="text-red-600">* Wajib</span>
         </label>
 
-        <input
+        <BaseInput
           id="product-name"
           v-model="form.name"
           type="text"
           placeholder="Masukkan nama produk"
-          class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
-          :class="
-            fieldErrors.name
-              ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-              : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'
-          "
+          :required="true"
+          :error="fieldErrors.name"
         />
 
         <p
           v-if="fieldErrors.name"
+          id="product-name-error"
           class="mt-1 text-xs font-medium text-red-600"
         >
           {{ fieldErrors.name }}
@@ -314,23 +438,21 @@ onMounted(async () => {
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
           SKU
+          <span class="text-red-600">* Wajib</span>
         </label>
 
-        <input
+        <BaseInput
           id="product-sku"
           v-model="form.sku"
           type="text"
           placeholder="Masukkan SKU produk"
-          class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
-          :class="
-            fieldErrors.sku
-              ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-              : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'
-          "
+          :required="true"
+          :error="fieldErrors.sku"
         />
 
         <p
           v-if="fieldErrors.sku"
+          id="product-sku-error"
           class="mt-1 text-xs font-medium text-red-600"
         >
           {{ fieldErrors.sku }}
@@ -343,39 +465,30 @@ onMounted(async () => {
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
           Kategori
+          <span class="text-red-600">* Wajib</span>
         </label>
 
-        <div class="relative">
-          <select
-            id="product-category"
-            v-model="form.category_id"
-            :disabled="categoriesLoading"
-            class="block w-full appearance-none rounded-xl border bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100"
-            :class="
-              fieldErrors.category_id
-                ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'
-            "
+        <BaseSelect
+          id="product-category"
+          v-model="form.category_id"
+          :disabled="categoriesLoading"
+          required
+          :error="fieldErrors.category_id"
+        >
+          <option value="">
+            {{ categoriesLoading ? 'Memuat kategori...' : 'Pilih kategori' }}
+          </option>
+          <option
+            v-for="category in categories"
+            :key="category.id"
+            :value="category.id"
           >
-            <option value="">
-              {{
-                categoriesLoading
-                  ? 'Memuat kategori...'
-                  : 'Pilih kategori'
-              }}
-            </option>
-
-            <option
-              v-for="category in categories"
-              :key="category.id"
-              :value="category.id"
-            >
-              {{ category.name }}
-            </option>
-          </select>
+            {{ category.name }}
+          </option>
+        </BaseSelect>
 
           <div
-            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
+            class="hidden"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -390,10 +503,9 @@ onMounted(async () => {
               />
             </svg>
           </div>
-        </div>
-
         <p
           v-if="fieldErrors.category_id"
+          id="product-category-error"
           class="mt-1 text-xs font-medium text-red-600"
         >
           {{ fieldErrors.category_id }}
@@ -406,26 +518,34 @@ onMounted(async () => {
             for="product-price"
             class="mb-2 block text-sm font-semibold text-slate-700"
           >
-            Harga
+            Harga (Rp)
+            <span class="text-red-600">* Wajib</span>
           </label>
 
-          <input
-            id="product-price"
-            v-model.number="form.price"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0"
-            class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
-            :class="
-              fieldErrors.price
+          <div class="flex overflow-hidden rounded-xl shadow-sm">
+            <span class="inline-flex items-center border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-600">
+              Rp
+            </span>
+            <input
+              id="product-price"
+              :value="priceInput"
+              type="text"
+              inputmode="decimal"
+              placeholder="0"
+              :required="true"
+              :aria-invalid="fieldErrors.price ? 'true' : undefined"
+              aria-describedby="product-price-error"
+              @input="handlePriceInput"
+              class="block min-w-0 flex-1 rounded-r-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:ring-2"
+              :class="fieldErrors.price
                 ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'
-            "
-          />
+                : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'"
+            />
+          </div>
 
           <p
             v-if="fieldErrors.price"
+            id="product-price-error"
             class="mt-1 text-xs font-medium text-red-600"
           >
             {{ fieldErrors.price }}
@@ -438,25 +558,45 @@ onMounted(async () => {
             class="mb-2 block text-sm font-semibold text-slate-700"
           >
             Stok
+            <span class="text-red-600">* Wajib</span>
           </label>
 
-          <input
-            id="product-stock"
-            v-model.number="form.stock"
-            type="number"
-            min="0"
-            step="1"
-            placeholder="0"
-            class="block w-full rounded-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:ring-2"
-            :class="
-              fieldErrors.stock
-                ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'
-            "
-          />
+          <div class="flex min-w-0 gap-2">
+            <button
+              type="button"
+              aria-label="Kurangi stok"
+              :disabled="submitting || Number(form.stock) <= 0"
+              @click="handleStockStep(-1)"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              -
+            </button>
+
+            <BaseInput
+              id="product-stock"
+              v-model="form.stock"
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              :required="true"
+              :error="fieldErrors.stock"
+              input-class="min-w-0 flex-1 text-center"
+            />
+
+            <button
+              type="button"
+              aria-label="Tambah stok"
+              :disabled="submitting"
+              @click="handleStockStep(1)"
+              class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              +
+            </button>
+          </div>
 
           <p
             v-if="fieldErrors.stock"
+            id="product-stock-error"
             class="mt-1 text-xs font-medium text-red-600"
           >
             {{ fieldErrors.stock }}
@@ -470,12 +610,12 @@ onMounted(async () => {
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
           Status
+          <span class="text-slate-500">Opsional</span>
         </label>
 
-        <select
+        <BaseSelect
           id="product-status"
           v-model="form.status"
-          class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm outline-none transition hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
         >
           <option value="active">
             Aktif
@@ -484,7 +624,7 @@ onMounted(async () => {
           <option value="inactive">
             Tidak Aktif
           </option>
-        </select>
+        </BaseSelect>
       </div>
 
       <div>
@@ -493,6 +633,7 @@ onMounted(async () => {
           class="mb-2 block text-sm font-semibold text-slate-700"
         >
           Deskripsi
+          <span class="text-slate-500">Opsional</span>
         </label>
 
         <textarea
@@ -507,22 +648,21 @@ onMounted(async () => {
       <div
         class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end"
       >
-        <button
+        <BaseButton
           type="button"
+          variant="secondary"
           :disabled="submitting"
-          class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleCancel"
         >
           Batal
-        </button>
+        </BaseButton>
 
-        <button
+        <BaseButton
           type="submit"
           :disabled="submitting || categoriesLoading"
-          class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {{ submitting ? 'Menyimpan...' : isEditMode ? 'Simpan Perubahan' : 'Simpan Produk' }}
-        </button>
+        </BaseButton>
       </div>
     </form>
   </div>

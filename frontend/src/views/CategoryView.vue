@@ -7,6 +7,10 @@ import {
   updateCategory,
   deleteCategory,
 } from '@/api/categoryService';
+import BaseButton from '@/components/BaseButton.vue';
+import BaseInput from '@/components/BaseInput.vue';
+import BaseTable from '@/components/BaseTable.vue';
+import { formatDateTime } from '@/utils/formatters';
 
 // State
 
@@ -185,23 +189,6 @@ async function handleDelete() {
   }
 }
 
-// Helpers
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '-';
-
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 // Lifecycle
 
 onMounted(async () => {
@@ -228,14 +215,14 @@ onMounted(async () => {
           </p>
         </div>
 
-        <button
+        <BaseButton
           type="button"
           @click="openCreateForm"
-          class="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto sm:px-5"
+          class="w-full sm:w-auto sm:px-5"
         >
           <span class="mr-2 text-lg leading-none">+</span>
           Tambah Kategori
-        </button>
+        </BaseButton>
       </div>
 
       <!-- Success message -->
@@ -272,17 +259,18 @@ onMounted(async () => {
               Nama Kategori
             </label>
 
-            <input
+            <BaseInput
               id="categoryName"
               v-model="formName"
               type="text"
               placeholder="Masukkan nama kategori..."
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
-              :class="{ 'border-red-400': formError }"
+              :required="true"
+              :error="formError"
             />
 
             <p
               v-if="formError"
+              id="categoryName-error"
               class="mt-2 text-sm text-red-600"
             >
               {{ formError }}
@@ -290,10 +278,10 @@ onMounted(async () => {
           </div>
 
           <div class="flex flex-col-reverse gap-3 sm:flex-row">
-            <button
+            <BaseButton
               type="submit"
               :disabled="submitting"
-              class="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              class="w-full sm:w-auto"
             >
               {{ submitting
                 ? 'Menyimpan...'
@@ -301,16 +289,17 @@ onMounted(async () => {
                   ? 'Simpan Perubahan'
                   : 'Simpan Kategori'
               }}
-            </button>
+            </BaseButton>
 
-            <button
+            <BaseButton
               type="button"
+              variant="secondary"
               @click="closeForm"
               :disabled="submitting"
-              class="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              class="w-full sm:w-auto"
             >
               Batal
-            </button>
+            </BaseButton>
           </div>
         </form>
       </div>
@@ -439,11 +428,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div
+        <BaseTable
           v-else
-          class="overflow-x-auto"
+          table-class="min-w-160 lg:min-w-full"
         >
-          <table class="min-w-160 divide-y divide-slate-200 lg:min-w-full">
 
             <thead class="bg-slate-50">
               <tr>
@@ -489,11 +477,11 @@ onMounted(async () => {
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
-                  {{ formatDate(category.created_at) }}
+                  {{ formatDateTime(category.created_at) }}
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-5 lg:px-6">
-                  {{ formatDate(category.updated_at) }}
+                  {{ formatDateTime(category.updated_at) }}
                 </td>
 
                 <td class="px-4 py-4 text-right sm:px-5 lg:px-6">
@@ -516,8 +504,7 @@ onMounted(async () => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
+        </BaseTable>
       </div>
     </div>
   </div>

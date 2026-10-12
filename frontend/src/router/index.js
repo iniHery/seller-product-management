@@ -75,10 +75,13 @@ router.beforeEach(async (to, from) => {
   if (isAuthenticated && !authStore.user) {
     try {
       await authStore.fetchMe();
-    } catch (e) {
-      // Invalid token – clear and redirect to login
-      authStore.clearAuth();
-      return { name: 'Login' };
+    } catch (error) {
+      if (error.response?.status === 401) {
+        authStore.clearAuth();
+        return { name: 'Login' };
+      }
+
+      console.error('Failed to load the authenticated user:', error);
     }
   }
 

@@ -1,10 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 
+import ProductDeleteConfirmation from '@/components/ProductDeleteConfirmation.vue';
+import ProductDetailModal from '@/components/ProductDetailModal.vue';
 import ProductForm from '@/components/ProductForm.vue';
+import BaseTable from '@/components/BaseTable.vue';
 
-import { getProducts, getProduct, deleteProduct } from '@/api/productService';
+import { getProducts, getProduct, deleteProduct, patchProduct } from '@/api/productService';
 import { getCategories } from '@/api/categoryService';
+import { formatCurrency } from '@/utils/formatters';
 
 // State
 
@@ -12,6 +16,7 @@ const products = ref([]);
 const categories = ref([]);
 
 const loading = ref(false);
+const productsLoadFailed = ref(false);
 let productsRequestId = 0;
 
 const errorMessage = ref('');
@@ -29,6 +34,7 @@ let detailRequestId = 0;
 const showDeleteModal = ref(false);
 const productToDelete = ref(null);
 const deleting = ref(false);
+const statusUpdating = ref(null);
 
 const searchInput = ref('');
 const search = ref('');
@@ -49,6 +55,7 @@ const pagination = ref({
 async function fetchProducts(page = 1) {
   const requestId = ++productsRequestId;
   loading.value = true;
+  productsLoadFailed.value = false;
   errorMessage.value = '';
 
   try {
@@ -72,13 +79,24 @@ async function fetchProducts(page = 1) {
     if (requestId !== productsRequestId) return;
 
     const responseData = response.data?.data;
+    if (
+      response.data?.success !== true ||
+      !responseData ||
+      !Array.isArray(responseData.results) ||
+      !Number.isInteger(responseData.count) ||
+      responseData.count < 0 ||
+      (typeof responseData.next !== 'string' && responseData.next !== null) ||
+      (typeof responseData.previous !== 'string' && responseData.previous !== null)
+    ) {
+      throw new Error('Respons daftar produk tidak valid.');
+    }
 
-    products.value = responseData?.results || [];
+    products.value = responseData.results;
 
     pagination.value = {
-      count: responseData?.count || 0,
-      next: responseData?.next || null,
-      previous: responseData?.previous || null,
+      count: responseData.count,
+      next: responseData.next,
+      previous: responseData.previous,
     };
 
     currentPage.value = page;
@@ -93,6 +111,7 @@ async function fetchProducts(page = 1) {
     }
 
     products.value = [];
+    productsLoadFailed.value = true;
 
     pagination.value = {
       count: 0,
@@ -111,13 +130,19 @@ async function fetchProducts(page = 1) {
 async function fetchCategories() {
   try {
     const response = await getCategories();
+    if (response.data?.success !== true || !Array.isArray(response.data.data)) {
+      throw new Error('Respons daftar kategori tidak valid.');
+    }
 
-    categories.value = response.data?.data || [];
+    categories.value = response.data.data;
   } catch (error) {
     console.error('Failed to fetch categories:', error);
 
-    categories.value = [];
-    errorMessage.value = error.response?.data?.detail || 'Gagal memuat kategori.';
+    if (!error.response) {
+      errorMessage.value = error.message || 'Gagal memuat kategori.';
+    } else {
+      errorMessage.value = error.response.data?.detail || 'Gagal memuat kategori.';
+    }
   }
 }
 
@@ -217,6 +242,22 @@ function openEditProduct(product) {
   showProductForm.value = true;
 }
 
+async function toggleProductStatus(product) {
+  if (statusUpdating.value === product.id) return;
+  const previousStatus = product.status;
+  const nextStatus = previousStatus === 'active' ? 'inactive' : 'active';
+  statusUpdating.value = product.id;
+  product.status = nextStatus;
+  try {
+    await patchProduct(product.id, { status: nextStatus });
+  } catch (error) {
+    product.status = previousStatus;
+    errorMessage.value = error.response?.data?.detail || 'Gagal mengubah status produk.';
+  } finally {
+    statusUpdating.value = null;
+  }
+}
+
 function closeProductEditor() {
   showProductForm.value = false;
   editingProduct.value = null;
@@ -283,31 +324,6 @@ async function handleDelete() {
     deleting.value = false;
     productToDelete.value = null;
   }
-}
-
-// Helpers
-
-function formatPrice(price) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(Number(price || 0));
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 // Lifecycle
@@ -381,216 +397,22 @@ onMounted(async () => {
       </div>
 
       <!-- Product detail modal -->
-      <div
+      <ProductDetailModal
         v-if="showDetailModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <div
-          class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px]"
-          @click="closeProductDetail"
-        ></div>
-
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="product-detail-title"
-          class="relative max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6"
-        >
-          <div class="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h2
-                id="product-detail-title"
-                class="text-xl font-bold text-slate-900"
-              >
-                Detail Produk
-              </h2>
-              <p class="mt-1 text-sm text-slate-500">
-                Informasi produk
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="closeProductDetail"
-              class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
-              aria-label="Close product details"
-            >
-              <svg
-                class="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div
-            v-if="detailLoading"
-            class="flex min-h-48 flex-col items-center justify-center gap-3"
-            role="status"
-            aria-live="polite"
-          >
-            <div
-              class="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600"
-              aria-hidden="true"
-            ></div>
-            <p class="text-sm font-medium text-slate-500">
-              Memuat detail produk...
-            </p>
-          </div>
-
-          <div
-            v-else-if="detailError"
-            role="alert"
-            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
-          >
-            {{ detailError }}
-          </div>
-
-          <dl
-            v-else-if="detailProduct"
-            class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-          >
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Nama
-              </dt>
-              <dd class="mt-1 wrap-break-word text-sm font-semibold text-slate-900">
-                {{ detailProduct.name || '-' }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                SKU
-              </dt>
-              <dd class="mt-1 wrap-break-word text-sm font-medium text-slate-900">
-                {{ detailProduct.sku || '-' }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Kategori
-              </dt>
-              <dd class="mt-1 wrap-break-word text-sm text-slate-900">
-                {{ detailProduct.category?.name || '-' }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Harga
-              </dt>
-              <dd class="mt-1 text-sm font-semibold text-slate-900">
-                {{ formatPrice(detailProduct.price) }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Stok
-              </dt>
-              <dd class="mt-1 text-sm text-slate-900">
-                {{ detailProduct.stock ?? '-' }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Status
-              </dt>
-              <dd class="mt-1">
-                <span
-                  class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-                  :class="detailProduct.status === 'active'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-slate-200 text-slate-700'"
-                >
-                  {{ detailProduct.status || '-' }}
-                </span>
-              </dd>
-            </div>
-            <div class="rounded-xl bg-slate-50 p-4 sm:col-span-2">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Deskripsi
-              </dt>
-              <dd class="mt-1 whitespace-pre-wrap wrap-break-word text-sm leading-6 text-slate-700">
-                {{ detailProduct.description || '-' }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Dibuat Pada
-              </dt>
-              <dd class="mt-1 wrap-break-word text-sm text-slate-700">
-                {{ formatDate(detailProduct.created_at) }}
-              </dd>
-            </div>
-            <div class="min-w-0 rounded-xl bg-slate-50 p-4">
-              <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Diperbarui Pada
-              </dt>
-              <dd class="mt-1 wrap-break-word text-sm text-slate-700">
-                {{ formatDate(detailProduct.updated_at) }}
-              </dd>
-            </div>
-          </dl>
-
-          <div class="mt-6 flex justify-end border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              @click="closeProductDetail"
-              class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto"
-            >
-              Tutup
-            </button>
-          </div>
-        </section>
-      </div>
+        :product="detailProduct"
+        :loading="detailLoading"
+        :error="detailError"
+        @close="closeProductDetail"
+      />
 
       <!-- Delete confirmation modal -->
-      <div
+      <ProductDeleteConfirmation
         v-if="showDeleteModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <div
-          class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] transition-opacity"
-          @click="!deleting && cancelDelete()"
-        ></div>
-
-        <div
-          class="relative max-h-[calc(100vh-2rem)] w-full max-w-md transform overflow-y-auto rounded-2xl bg-white p-5 text-left shadow-xl transition-all sm:p-6"
-        >
-          <div class="mb-5">
-            <h3 class="text-lg font-bold text-slate-900">
-              Hapus Produk?
-            </h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500">
-              Apakah Anda yakin ingin menghapus <span class="font-semibold text-slate-900">{{ productToDelete?.name }}</span>? Tindakan ini tidak dapat dibatalkan.
-            </p>
-          </div>
-
-          <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              @click="cancelDelete"
-              :disabled="deleting"
-              class="inline-flex w-full justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              @click="handleDelete"
-              :disabled="deleting"
-              class="inline-flex w-full justify-center rounded-xl border border-transparent bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {{ deleting ? 'Menghapus...' : 'Hapus Produk' }}
-            </button>
-          </div>
-        </div>
-      </div>
+        :product="productToDelete"
+        :deleting="deleting"
+        @cancel="cancelDelete"
+        @confirm="handleDelete"
+      />
 
       <!-- Search and filter -->
       <div
@@ -776,6 +598,14 @@ onMounted(async () => {
         </div>
 
         <div
+          v-else-if="productsLoadFailed"
+          class="flex min-h-75 items-center justify-center px-6 py-12 text-center text-sm text-slate-600"
+          role="status"
+        >
+          Data produk tidak dapat ditampilkan. Periksa koneksi dan coba cari kembali.
+        </div>
+
+        <div
           v-else-if="products.length === 0"
           class="flex min-h-75 items-center justify-center px-6 py-12"
         >
@@ -817,8 +647,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200">
+        <BaseTable v-else>
             <thead class="bg-slate-50">
               <tr>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
@@ -875,7 +704,7 @@ onMounted(async () => {
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-800 sm:px-5 lg:px-6">
-                  {{ formatPrice(product.price) }}
+                  {{ formatCurrency(product.price) }}
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-700 sm:px-5 lg:px-6">
@@ -883,19 +712,16 @@ onMounted(async () => {
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 sm:px-5 lg:px-6">
-                  <span
-                    v-if="product.status === 'active'"
-                    class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                  >
-                    Aktif
-                  </span>
-
-                  <span
-                    v-else
-                    class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
-                  >
-                    Tidak Aktif
-                  </span>
+                  <button type="button" role="switch" :aria-checked="product.status === 'active'"
+                    :disabled="statusUpdating === product.id" @click="toggleProductStatus(product)"
+                    class="inline-flex items-center gap-2 text-xs font-semibold disabled:opacity-50">
+                    <span class="relative h-6 w-11 rounded-full transition"
+                      :class="product.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'">
+                      <span class="absolute top-1 h-4 w-4 rounded-full bg-white shadow transition"
+                        :class="product.status === 'active' ? 'left-6' : 'left-1'" />
+                    </span>
+                    {{ product.status === 'active' ? 'Aktif' : 'Tidak Aktif' }}
+                  </button>
                 </td>
 
                 <td class="px-4 py-4 text-right sm:px-5 lg:px-6">
@@ -925,8 +751,7 @@ onMounted(async () => {
                 </td>
               </tr>
             </tbody>
-          </table>
-        </div>
+        </BaseTable>
 
         <div
           v-if="!loading && pagination.count > 0"

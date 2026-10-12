@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
@@ -5,7 +6,13 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    ChangePasswordSerializer,
+    LoginSerializer,
+    ProfileSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 
 
 class LoginAPIView(APIView):
@@ -78,3 +85,35 @@ class MeAPIView(APIView):
     def get(self, request, *args, **kwargs):
         serializer = UserSerializer(request.user)
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
+
+    def patch(self, request, *args, **kwargs):
+        serializer = ProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {'success': True, 'data': serializer.data},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ChangePasswordAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            request.user.set_password(serializer.validated_data['new_password'])
+            request.user.save(update_fields=['password'])
+            Token.objects.filter(user=request.user).delete()
+        return Response(
+            {'success': True, 'data': None},
+            status=status.HTTP_200_OK,
+        )

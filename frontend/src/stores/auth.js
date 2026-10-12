@@ -70,6 +70,17 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async updateProfile(profile) {
+      const response = await authService.updateProfile(profile);
+      if (!response.data?.success) {
+        throw new Error('Server tidak mengonfirmasi perubahan profil.');
+      }
+
+      this.user = response.data.data;
+      localStorage.setItem('auth_user', JSON.stringify(this.user));
+      return this.user;
+    },
+
     clearAuth() {
       this.token = null;
       this.user = null;

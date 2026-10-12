@@ -2,6 +2,9 @@
 import { ref, computed, h } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import AccountMenu from '@/components/AccountMenu.vue';
+import ChangePasswordForm from '@/components/ChangePasswordForm.vue';
+import ProfileForm from '@/components/ProfileForm.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -11,6 +14,9 @@ const mobileMenuOpen = ref(false);
 const loggingOut = ref(false);
 const logoutError = ref('');
 const showLogoutConfirmation = ref(false);
+const accountPanel = ref(false);
+const accountSection = ref('profile');
+const accountSuccessMessage = ref('');
 
 const userInitial = computed(() => {
   const username = authStore.user?.username || '';
@@ -98,6 +104,32 @@ const navItems = [
 
 function isActive(routeName) {
   return route.name === routeName;
+}
+
+function openAccountPanel() {
+  accountPanel.value = true;
+  accountSection.value = 'profile';
+  accountSuccessMessage.value = '';
+  mobileMenuOpen.value = false;
+}
+
+function closeAccountPanel() {
+  accountPanel.value = false;
+  accountSuccessMessage.value = '';
+}
+
+async function handleAccountSaved() {
+  if (accountSection.value === 'password') {
+    closeAccountPanel();
+    authStore.clearAuth();
+    await router.replace({ name: 'Login', query: { passwordChanged: '1' } });
+    return;
+  }
+
+  accountSuccessMessage.value = 'Profil berhasil diperbarui.';
+  window.setTimeout(() => {
+    accountSuccessMessage.value = '';
+  }, 3000);
 }
 
 function openLogoutConfirmation() {
@@ -241,42 +273,13 @@ async function confirmLogout() {
           </ul>
 
           <div class="mt-auto border-t border-slate-200 pt-4">
-            <div
-              v-if="authStore.user"
-              class="mb-3 flex items-center gap-3 rounded-xl px-3 py-2"
-            >
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold uppercase text-indigo-700"
-              >
-                {{ userInitial }}
-              </div>
-
-              <span class="truncate text-sm font-medium text-slate-600">
-                {{ authStore.user.username }}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              @click="openLogoutConfirmation"
-              :disabled="loggingOut"
-              class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg
-                class="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              {{ loggingOut ? 'Keluar...' : 'Keluar' }}
-            </button>
+            <AccountMenu
+              :user="authStore.user"
+              :user-initial="userInitial"
+              :logging-out="loggingOut"
+              @open-account="openAccountPanel"
+              @logout="openLogoutConfirmation"
+            />
           </div>
         </div>
       </nav>
@@ -316,42 +319,13 @@ async function confirmLogout() {
             </ul>
 
             <div class="mt-auto border-t border-slate-200 pt-4">
-              <div
-                v-if="authStore.user"
-                class="mb-3 flex items-center gap-3 rounded-xl px-3 py-2"
-              >
-                <div
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold uppercase text-indigo-700"
-                >
-                  {{ userInitial }}
-                </div>
-
-                <span class="truncate text-sm font-medium text-slate-600">
-                  {{ authStore.user.username }}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                @click="openLogoutConfirmation"
-                :disabled="loggingOut"
-                class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-                {{ loggingOut ? 'Keluar...' : 'Keluar' }}
-              </button>
+              <AccountMenu
+                :user="authStore.user"
+                :user-initial="userInitial"
+                :logging-out="loggingOut"
+                @open-account="openAccountPanel"
+                @logout="openLogoutConfirmation"
+              />
             </div>
           </div>
         </div>
@@ -367,6 +341,87 @@ async function confirmLogout() {
         </div>
         <router-view />
       </main>
+    </div>
+
+    <div
+      v-if="accountPanel"
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-[1px]"
+        aria-label="Tutup pengaturan akun"
+        @click="closeAccountPanel"
+      ></button>
+
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-panel-title"
+        class="relative max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6"
+      >
+        <div class="mb-5 flex items-start justify-between gap-4">
+          <h2
+            id="account-panel-title"
+            class="text-lg font-bold text-slate-900"
+          >
+            Profil Akun
+          </h2>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+            aria-label="Tutup"
+            @click="closeAccountPanel"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+          <button
+            type="button"
+            :aria-pressed="accountSection === 'profile'"
+            class="rounded-lg px-3 py-2 text-sm font-semibold transition"
+            :class="accountSection === 'profile'
+              ? 'bg-white text-indigo-700 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'"
+            @click="accountSection = 'profile'; accountSuccessMessage = ''"
+          >
+            Edit Profil
+          </button>
+          <button
+            type="button"
+            :aria-pressed="accountSection === 'password'"
+            class="rounded-lg px-3 py-2 text-sm font-semibold transition"
+            :class="accountSection === 'password'
+              ? 'bg-white text-indigo-700 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'"
+            @click="accountSection = 'password'; accountSuccessMessage = ''"
+          >
+            Ganti Password
+          </button>
+        </div>
+
+        <div
+          v-if="accountSuccessMessage"
+          role="status"
+          class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+        >
+          {{ accountSuccessMessage }}
+        </div>
+
+        <ProfileForm
+          v-if="accountSection === 'profile' && authStore.user"
+          :user="authStore.user"
+          @cancel="closeAccountPanel"
+          @saved="handleAccountSaved"
+        />
+        <ChangePasswordForm
+          v-else-if="accountSection === 'password'"
+          @cancel="closeAccountPanel"
+          @saved="handleAccountSaved"
+        />
+      </section>
     </div>
 
     <div
