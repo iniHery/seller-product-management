@@ -185,16 +185,26 @@ function getErrorMessage(data) {
           } else if (normalizedMessage.includes('too common')) {
             messages.push('Kata sandi terlalu umum. Silakan gunakan kata sandi yang lebih kuat.');
           } else if (normalizedMessage.includes('too short')) {
-            messages.push('Kata sandi terlalu pendek.');
+            messages.push('Kata sandi terlalu pendek (minimal 8 karakter).');
+          } else if (normalizedMessage.includes('entirely numeric')) {
+            messages.push('Kata sandi tidak boleh seluruhnya berupa angka.');
           } else {
-            messages.push('Kata sandi belum memenuhi persyaratan. Silakan gunakan kata sandi yang lebih kuat.');
+            messages.push(message || 'Kata sandi belum memenuhi persyaratan.');
           }
-        } else if (field === 'username' && normalizedMessage.includes('already exists')) {
-          messages.push('Username sudah digunakan. Silakan pilih username lain.');
-        } else if (field === 'email' && normalizedMessage.includes('already exists')) {
-          messages.push('Email sudah digunakan. Silakan gunakan email lain.');
-        } else if (field === 'email' && normalizedMessage.includes('valid email')) {
-          messages.push('Format email tidak valid.');
+        } else if (field === 'username') {
+          if (normalizedMessage.includes('already exists') || normalizedMessage.includes('sudah digunakan')) {
+            messages.push('Username sudah digunakan. Silakan pilih username lain.');
+          } else {
+            messages.push(message);
+          }
+        } else if (field === 'email') {
+          if (normalizedMessage.includes('already exists') || normalizedMessage.includes('sudah digunakan')) {
+            messages.push('Email sudah digunakan. Silakan gunakan email lain.');
+          } else if (normalizedMessage.includes('valid email')) {
+            messages.push('Format email tidak valid.');
+          } else {
+            messages.push(message);
+          }
         } else if (normalizedMessage.includes('required')) {
           const fieldName = {
             username: 'Username',
@@ -202,8 +212,11 @@ function getErrorMessage(data) {
             password: 'Kata sandi',
           }[field];
           if (fieldName) messages.push(`${fieldName} wajib diisi.`);
+          else messages.push(message);
         } else if (field === 'non_field_errors') {
           messages.push('Data pendaftaran tidak valid. Silakan periksa kembali informasi Anda.');
+        } else {
+          messages.push(message);
         }
       }
     }
@@ -211,6 +224,10 @@ function getErrorMessage(data) {
     if (messages.length > 0) {
       return [...new Set(messages)].join(' ');
     }
+  }
+
+  if (typeof data === 'string' && data.includes('<html')) {
+    return 'Terjadi kendala koneksi ke server. Silakan muat ulang halaman atau coba lagi.';
   }
 
   return 'Pendaftaran gagal. Silakan periksa informasi Anda dan coba lagi.';
