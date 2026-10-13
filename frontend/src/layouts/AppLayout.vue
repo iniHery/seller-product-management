@@ -168,7 +168,7 @@ async function confirmLogout() {
 
     <div class="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
       <span class="min-w-0 truncate text-sm font-bold tracking-tight text-slate-900">
-        Seller Product Management
+        Nivora
       </span>
 
       <button
@@ -228,7 +228,7 @@ async function confirmLogout() {
       >
         <div class="flex h-16 shrink-0 items-center justify-between gap-3 px-5">
           <span class="min-w-0 text-base font-bold leading-tight tracking-tight text-slate-900">
-            Seller Product Management
+            Nivora
           </span>
           <button
             type="button"
@@ -295,7 +295,7 @@ async function confirmLogout() {
 
           <div class="flex h-16 shrink-0 items-center border-b border-slate-100 px-6">
             <span class="text-base font-bold leading-tight tracking-tight text-slate-900 lg:text-lg">
-              Seller Product Management
+              Nivora
             </span>
           </div>
 

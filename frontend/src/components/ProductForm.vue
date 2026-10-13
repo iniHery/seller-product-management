@@ -522,8 +522,16 @@ onMounted(async () => {
             <span class="text-red-600">* Wajib</span>
           </label>
 
-          <div class="flex overflow-hidden rounded-xl shadow-sm">
-            <span class="inline-flex items-center border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-semibold text-slate-600">
+          <div
+            class="flex items-center overflow-hidden rounded-xl border bg-white shadow-sm transition focus-within:ring-2"
+            :class="fieldErrors.price
+              ? 'border-red-400 focus-within:border-red-400 focus-within:ring-red-100'
+              : 'border-slate-300 hover:border-slate-400 focus-within:border-indigo-600 focus-within:ring-indigo-100'"
+          >
+            <span
+              class="inline-flex items-center self-stretch border-r bg-slate-50 px-3.5 text-sm font-semibold text-slate-600 select-none"
+              :class="fieldErrors.price ? 'border-red-200' : 'border-slate-300'"
+            >
               Rp
             </span>
             <input
@@ -536,10 +544,7 @@ onMounted(async () => {
               :aria-invalid="fieldErrors.price ? 'true' : undefined"
               aria-describedby="product-price-error"
               @input="handlePriceInput"
-              class="block min-w-0 flex-1 rounded-r-xl border bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:ring-2"
-              :class="fieldErrors.price
-                ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
-                : 'border-slate-300 hover:border-slate-400 focus:border-indigo-600 focus:ring-indigo-100'"
+              class="block min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:outline-none focus:ring-0"
             />
           </div>
 

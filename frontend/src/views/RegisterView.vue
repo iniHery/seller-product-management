@@ -4,10 +4,10 @@
       <div class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60 sm:p-8">
         <div class="mb-8 text-center">
           <h1 class="break-words text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
-            Seller Product Management
+            Nivora
           </h1>
           <p class="mt-2 text-sm text-slate-500">
-            Kelola produk Anda dengan mudah
+            Product Management Made Simple
           </p>
         </div>
 

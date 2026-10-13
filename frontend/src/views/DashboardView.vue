@@ -107,11 +107,11 @@ onMounted(fetchDashboardStats);
         <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div class="min-w-0">
             <p class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200">
-              Seller Product Management
+              Nivora
             </p>
             <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Dasbor</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-base">
-              Pantau ringkasan produk dan stok Anda dalam satu tampilan.
+              Product Management Made Simple
             </p>
           </div>
 
