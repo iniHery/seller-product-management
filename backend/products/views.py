@@ -1,5 +1,5 @@
 from django.db import IntegrityError, transaction
-from django.db.models import Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -186,6 +186,16 @@ class ProductAPIView(APIView):
         if status_param:
             products = products.filter(status=status_param)
 
+        stock_status = request.query_params.get('stock_status', '').strip().lower()
+        if stock_status == 'low':
+            products = products.filter(stock__gt=0, stock__lte=5)
+        elif stock_status == 'out':
+            products = products.filter(stock=0)
+        elif stock_status == 'critical':
+            products = products.filter(stock__lte=5)
+        elif stock_status == 'in_stock':
+            products = products.filter(stock__gt=5)
+
         products = products.order_by('-created_at', '-id')
 
         paginator = ProductPagination()
@@ -306,10 +316,60 @@ class DashboardAPIView(APIView):
         inactive_products = qs.filter(status='inactive').count()
         total_stock = qs.aggregate(Sum('stock'))['stock__sum'] or 0
 
+        # Tahap 1: Stok menipis (1-5 unit) dan stok habis (0 unit)
+        active_qs = qs.filter(status='active')
+        low_stock_products = active_qs.filter(stock__gt=0, stock__lte=5).count()
+        out_of_stock_products = active_qs.filter(stock=0).count()
+
+        # Tahap 4: Total Valuasi Inventaris (Harga * Stok) pada produk aktif
+        valuation_agg = active_qs.aggregate(total=Sum(F('price') * F('stock')))['total']
+        total_valuation = float(valuation_agg) if valuation_agg is not None else 0.0
+
+        # Tahap 4: Distribusi Kategori (Top kategori beserta persentase)
+        category_counts = (
+            active_qs.filter(category__deleted_at__isnull=True)
+            .values('category__id', 'category__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:5]
+        )
+        category_distribution = [
+            {
+                "category_id": str(item['category__id']) if item['category__id'] else None,
+                "category_name": item['category__name'] or 'Tanpa Kategori',
+                "count": item['count'],
+                "percentage": round((item['count'] / active_products * 100), 1) if active_products > 0 else 0,
+            }
+            for item in category_counts
+        ]
+
+        # Tahap 4: 5 Produk Paling Kritis (Stok <= 5) untuk Quick Restock Action
+        critical_qs = (
+            active_qs.select_related('category')
+            .filter(stock__lte=5)
+            .order_by('stock', 'name')[:5]
+        )
+        critical_products = [
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "sku": p.sku,
+                "stock": p.stock,
+                "category_name": p.category.name if p.category else "-",
+                "price": str(p.price),
+                "is_out_of_stock": p.stock == 0,
+            }
+            for p in critical_qs
+        ]
+
         data = {
             "total_products": total_products,
             "active_products": active_products,
             "inactive_products": inactive_products,
             "total_stock": total_stock,
+            "low_stock_products": low_stock_products,
+            "out_of_stock_products": out_of_stock_products,
+            "total_valuation": total_valuation,
+            "category_distribution": category_distribution,
+            "critical_products": critical_products,
         }
         return Response({"success": True, "data": data}, status=status.HTTP_200_OK)

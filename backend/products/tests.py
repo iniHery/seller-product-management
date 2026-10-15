@@ -693,3 +693,87 @@ class DashboardTests(APITestCase):
         self.assertEqual(data["active_products"], 1)
         self.assertEqual(data["inactive_products"], 1)
         self.assertEqual(data["total_stock"], 15)
+        self.assertEqual(data["low_stock_products"], 1)
+        self.assertEqual(data["out_of_stock_products"], 0)
+        self.assertEqual(data["total_valuation"], 50.0)
+        self.assertEqual(len(data["category_distribution"]), 1)
+        self.assertEqual(data["category_distribution"][0]["category_name"], "Cat")
+        self.assertEqual(len(data["critical_products"]), 1)
+        self.assertEqual(data["critical_products"][0]["sku"], "SKU1")
+
+
+class ProductStockFilterTests(APITestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user(username="seller-stock", password="password")
+        self.category = Category.objects.create(
+            name="Stock Category",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
+        self.list_url = reverse("product-list")
+
+        self.p_out = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Out of stock item",
+            sku="OUT-1",
+            price="10.00",
+            stock=0,
+            status=Product.Status.ACTIVE,
+        )
+        self.p_low = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Low stock item",
+            sku="LOW-1",
+            price="20.00",
+            stock=3,
+            status=Product.Status.ACTIVE,
+        )
+        self.p_safe = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Safe stock item",
+            sku="SAFE-1",
+            price="30.00",
+            stock=12,
+            status=Product.Status.ACTIVE,
+        )
+
+    def test_filter_stock_status_low(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(f"{self.list_url}?stock_status=low")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        skus = [p["sku"] for p in response.data["data"]["results"]]
+        self.assertIn("LOW-1", skus)
+        self.assertNotIn("OUT-1", skus)
+        self.assertNotIn("SAFE-1", skus)
+
+    def test_filter_stock_status_out(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(f"{self.list_url}?stock_status=out")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        skus = [p["sku"] for p in response.data["data"]["results"]]
+        self.assertIn("OUT-1", skus)
+        self.assertNotIn("LOW-1", skus)
+        self.assertNotIn("SAFE-1", skus)
+
+    def test_filter_stock_status_critical(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(f"{self.list_url}?stock_status=critical")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        skus = [p["sku"] for p in response.data["data"]["results"]]
+        self.assertIn("OUT-1", skus)
+        self.assertIn("LOW-1", skus)
+        self.assertNotIn("SAFE-1", skus)
+
+    def test_filter_stock_status_in_stock(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(f"{self.list_url}?stock_status=in_stock")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        skus = [p["sku"] for p in response.data["data"]["results"]]
+        self.assertIn("SAFE-1", skus)
+        self.assertNotIn("OUT-1", skus)
+        self.assertNotIn("LOW-1", skus)
+

@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 import ProductDeleteConfirmation from '@/components/ProductDeleteConfirmation.vue';
 import ProductDetailModal from '@/components/ProductDetailModal.vue';
@@ -41,6 +42,9 @@ const search = ref('');
 
 const categoryFilter = ref('');
 const statusFilter = ref('');
+const stockFilter = ref('');
+
+const route = useRoute();
 
 const currentPage = ref(1);
 
@@ -73,6 +77,10 @@ async function fetchProducts(page = 1) {
 
     if (statusFilter.value) {
       params.status = statusFilter.value;
+    }
+
+    if (stockFilter.value) {
+      params.stock_status = stockFilter.value;
     }
 
     const response = await getProducts(params);
@@ -160,6 +168,7 @@ function resetFilters() {
 
   categoryFilter.value = '';
   statusFilter.value = '';
+  stockFilter.value = '';
 
   fetchProducts(1);
 }
@@ -328,7 +337,19 @@ async function handleDelete() {
 
 // Lifecycle
 
+watch(
+  () => route.query.stock_status,
+  (newStatus) => {
+    stockFilter.value = newStatus ? String(newStatus) : '';
+    fetchProducts(1);
+  }
+);
+
 onMounted(async () => {
+  if (route.query.stock_status) {
+    stockFilter.value = String(route.query.stock_status);
+  }
+
   await Promise.all([
     fetchProducts(1),
     fetchCategories(),
@@ -428,8 +449,8 @@ onMounted(async () => {
           </p>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div class="md:col-span-2 xl:col-span-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div class="sm:col-span-2 lg:col-span-3 xl:col-span-2">
             <label
               for="search"
               class="mb-2 block text-sm font-semibold text-slate-700"
@@ -534,6 +555,48 @@ onMounted(async () => {
                 >
                   Tidak Aktif
                 </option>
+              </select>
+
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25-4.51a.75.75 0 01-.02-1.06z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label
+              for="stock"
+              class="mb-2 block text-sm font-semibold text-slate-700"
+            >
+              Stok
+            </label>
+
+            <div class="relative">
+              <select
+                id="stock"
+                v-model="stockFilter"
+                @change="handleSearch"
+                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+              >
+                <option value="">Semua Stok</option>
+                <option value="in_stock">Tersedia (> 5)</option>
+                <option value="low">Menipis (1 - 5)</option>
+                <option value="out">Habis (0)</option>
+                <option value="critical">Kritis (≤ 5)</option>
               </select>
 
               <div
@@ -707,8 +770,22 @@ onMounted(async () => {
                   {{ formatCurrency(product.price) }}
                 </td>
 
-                <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-700 sm:px-5 lg:px-6">
-                  {{ product.stock }}
+                <td class="whitespace-nowrap px-4 py-4 text-sm sm:px-5 lg:px-6">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-slate-800 tabular-nums">{{ product.stock }}</span>
+                    <span
+                      v-if="product.stock === 0"
+                      class="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-600/10"
+                    >
+                      Habis
+                    </span>
+                    <span
+                      v-else-if="product.stock <= 5"
+                      class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                    >
+                      Menipis
+                    </span>
+                  </div>
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-4 sm:px-5 lg:px-6">
