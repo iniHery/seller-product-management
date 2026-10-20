@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, onBeforeUnmount } from 'vue';
 import { RouterLink } from 'vue-router';
 import { getDashboardStats } from '@/api/dashboardService';
 import { formatCurrency } from '@/utils/formatters';
@@ -46,52 +46,35 @@ const stockHealth = computed(() => {
   };
 });
 
+
+// Dashboard metric cards definition
 const metricCards = computed(() => {
   if (!stats.value) return [];
-
+  const totalProducts = stats.value.total_products || 0;
+  const activeProducts = stats.value.active_products || 0;
+  const inactiveProducts = stats.value.inactive_products || 0;
+  const totalStock = stats.value.total_stock || 0;
+  const totalValuation = stats.value.total_valuation || 0;
+  const valuation = formatCurrency(totalValuation);
   return [
-    {
-      label: 'Total produk',
-      value: numberFormatter.format(stats.value.total_products),
-      description: 'Semua produk di katalog Anda',
-      icon: 'products',
-      iconClass: 'bg-indigo-50 text-indigo-600',
-      accentClass: 'bg-indigo-500',
-    },
-    {
-      label: 'Produk aktif',
-      value: numberFormatter.format(stats.value.active_products),
-      description: `${activePercentage.value}% dari seluruh produk`,
-      icon: 'active',
-      iconClass: 'bg-emerald-50 text-emerald-600',
-      accentClass: 'bg-emerald-500',
-    },
-    {
-      label: 'Total stok unit',
-      value: numberFormatter.format(stats.value.total_stock),
-      description: 'Jumlah kuantitas seluruh barang',
-      icon: 'stock',
-      iconClass: 'bg-sky-50 text-sky-600',
-      accentClass: 'bg-sky-500',
-    },
-    {
-      label: 'Valuasi inventaris',
-      value: formatCurrency(stats.value.total_valuation || 0),
-      description: 'Estimasi nilai produk aktif',
-      icon: 'valuation',
-      iconClass: 'bg-purple-50 text-purple-600',
-      accentClass: 'bg-purple-500',
-    },
-    {
-      label: 'Stok kritis',
-      value: numberFormatter.format(criticalStockCount.value),
-      description: `${stats.value.out_of_stock_products || 0} habis, ${stats.value.low_stock_products || 0} menipis`,
-      icon: 'alert',
-      iconClass: criticalStockCount.value > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500',
-      accentClass: criticalStockCount.value > 0 ? 'bg-amber-500' : 'bg-slate-300',
-    },
+    { label: 'Total Produk', value: totalProducts, icon: 'products', iconClass: 'bg-indigo-100 text-indigo-600' },
+    { label: 'Produk Aktif', value: activeProducts, icon: 'active', iconClass: 'bg-emerald-100 text-emerald-600' },
+    { label: 'Produk Tidak Aktif', value: inactiveProducts, icon: 'inactive', iconClass: 'bg-gray-100 text-gray-600' },
+    { label: 'Stok Total', value: totalStock, icon: 'stock', iconClass: 'bg-sky-100 text-sky-600' },
+    { label: 'Valuasi inventaris', value: valuation, icon: 'valuation', iconClass: 'bg-amber-100 text-amber-600' },
   ];
 });
+const valuationCard = computed(() =>
+  metricCards.value.find(
+    (card) => card.label === 'Valuasi inventaris'
+  )
+);
+
+const otherCards = computed(() =>
+  metricCards.value.filter(
+    (card) => card.label !== 'Valuasi inventaris'
+  )
+);
 
 function isValidStats(data) {
   const fields = ['total_products', 'active_products', 'inactive_products', 'total_stock'];
@@ -130,7 +113,12 @@ async function fetchDashboardStats() {
   }
 }
 
-onMounted(fetchDashboardStats);
+onMounted(() => {
+  fetchDashboardStats();
+  // Set up periodic refresh every 60 seconds
+  const intervalId = setInterval(fetchDashboardStats, 60_000);
+  onBeforeUnmount(() => clearInterval(intervalId));
+});
 </script>
 
 <template>
@@ -260,41 +248,31 @@ onMounted(fetchDashboardStats);
       <!-- Dashboard Content -->
       <template v-else-if="stats">
         <!-- 5 Summary Cards Grid -->
-        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Ringkasan produk">
+        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" aria-label="Ringkasan produk">
           <article
             v-for="card in metricCards"
             :key="card.label"
-            class="relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-6"
+            :class="['relative min-w-0 overflow-visible rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-6', card.label === 'Valuasi inventaris' ? 'col-span-2' : '']"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="text-xs sm:text-sm font-medium text-slate-500">{{ card.label }}</p>
-                <p class="mt-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 tabular-nums">
+                <p class="mt-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 tabular-nums whitespace-nowrap">
                   {{ card.value }}
                 </p>
               </div>
               <div class="shrink-0 rounded-xl p-3" :class="card.iconClass">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <template v-if="card.icon === 'products'">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </template>
-                  <template v-else-if="card.icon === 'active'">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </template>
-                  <template v-else-if="card.icon === 'stock'">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                  </template>
-                  <template v-else-if="card.icon === 'valuation'">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </template>
-                  <template v-else>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </template>
+                  <path v-if="card.icon === 'products'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  <path v-else-if="card.icon === 'active'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path v-else-if="card.icon === 'stock'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  <path v-else-if="card.icon === 'valuation'" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.770 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
             </div>
             <p class="mt-3 text-xs leading-5 text-slate-500">{{ card.description }}</p>
-            <div class="absolute inset-x-0 bottom-0 h-1" :class="card.accentClass"></div>
+            <div class="absolute inset-x-0 bottom-0 h-1 rounded-b-xl" :class="card.accentClass"></div>
           </article>
         </section>
 
