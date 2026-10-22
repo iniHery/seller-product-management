@@ -15,3 +15,12 @@ frontend/.env.local
 
 .vercel
 .env*
+
+# Editor & AI tooling (local only, not needed by contributors)
+/.vscode/settings.json
+/.vscode/tasks.json
+/.vscode/mcp.json
+/.mcp.json
+
+# AI-generated Postman scripting instructions (personal tooling)
+.github/instructions/postman-*
