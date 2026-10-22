@@ -131,3 +131,63 @@ class ProductSerializer(serializers.ModelSerializer):
             "category",
             "seller",
         ]
+
+
+class ProductCSVRowSerializer(serializers.Serializer):
+    name = serializers.CharField(
+        max_length=255,
+        required=True,
+        error_messages={
+            "required": "Nama produk wajib diisi.",
+            "blank": "Nama produk tidak boleh kosong.",
+        },
+    )
+    sku = serializers.CharField(
+        max_length=100,
+        required=True,
+        error_messages={
+            "required": "SKU wajib diisi.",
+            "blank": "SKU tidak boleh kosong.",
+        },
+    )
+    category = serializers.CharField(
+        max_length=255,
+        required=True,
+        error_messages={
+            "required": "Kategori wajib diisi.",
+            "blank": "Kategori tidak boleh kosong.",
+        },
+    )
+    price = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        required=True,
+        error_messages={
+            "required": "Harga wajib diisi.",
+            "invalid": "Harga harus berupa angka yang valid.",
+            "min_value": "Harga tidak boleh bernilai negatif.",
+        },
+    )
+    stock = serializers.IntegerField(
+        min_value=0,
+        required=True,
+        error_messages={
+            "required": "Stok wajib diisi.",
+            "invalid": "Stok harus berupa bilangan bulat yang valid.",
+            "min_value": "Stok tidak boleh bernilai negatif.",
+        },
+    )
+    status = serializers.ChoiceField(
+        choices=["active", "inactive"],
+        default="active",
+        required=False,
+        error_messages={
+            "invalid_choice": "Status hanya boleh 'active' atau 'inactive'.",
+        },
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )

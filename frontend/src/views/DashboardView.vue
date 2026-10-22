@@ -2,7 +2,9 @@
 import { computed, onMounted, ref, onBeforeUnmount } from 'vue';
 import { RouterLink } from 'vue-router';
 import { getDashboardStats } from '@/api/dashboardService';
+import { exportProductsCSV } from '@/api/productService';
 import { formatCurrency } from '@/utils/formatters';
+import { triggerFileDownload, generateCSVFilename } from '@/utils/download';
 import DashboardDonutChart from '@/components/DashboardDonutChart.vue';
 
 const stats = ref(null);
@@ -10,7 +12,10 @@ const loading = ref(false);
 const error = ref('');
 const lastUpdated = ref('');
 
-const numberFormatter = new Intl.NumberFormat('id-ID');
+const exporting = ref(false);
+const exportingCritical = ref(false);
+const exportSuccess = ref('');
+const exportError = ref('');
 
 const activePercentage = computed(() => {
   if (!stats.value?.total_products) return 0;
@@ -113,11 +118,59 @@ async function fetchDashboardStats() {
   }
 }
 
+async function handleExportCSV() {
+  if (exporting.value) return;
+  exporting.value = true;
+  exportError.value = '';
+  exportSuccess.value = '';
+
+  try {
+    const response = await exportProductsCSV();
+    triggerFileDownload(response.data, generateCSVFilename('produk'));
+    exportSuccess.value = 'Laporan seluruh inventaris produk berhasil diekspor ke file CSV!';
+    setTimeout(() => {
+      exportSuccess.value = '';
+    }, 4500);
+  } catch (err) {
+    console.error('Failed to export products from dashboard:', err);
+    exportError.value = 'Gagal mengekspor data produk ke CSV. Periksa koneksi dan coba lagi.';
+  } finally {
+    exporting.value = false;
+  }
+}
+
+async function handleExportCriticalCSV() {
+  if (exportingCritical.value) return;
+  exportingCritical.value = true;
+  exportError.value = '';
+  exportSuccess.value = '';
+
+  try {
+    const response = await exportProductsCSV({ stock_status: 'critical' });
+    triggerFileDownload(response.data, generateCSVFilename('produk-stok-kritis'));
+    exportSuccess.value = 'Laporan produk stok kritis berhasil diekspor ke file CSV!';
+    setTimeout(() => {
+      exportSuccess.value = '';
+    }, 4500);
+  } catch (err) {
+    console.error('Failed to export critical products from dashboard:', err);
+    exportError.value = 'Gagal mengekspor data produk kritis ke CSV. Periksa koneksi dan coba lagi.';
+  } finally {
+    exportingCritical.value = false;
+  }
+}
+
+let refreshInterval = null;
+
 onMounted(() => {
   fetchDashboardStats();
-  // Set up periodic refresh every 60 seconds
-  const intervalId = setInterval(fetchDashboardStats, 60_000);
-  onBeforeUnmount(() => clearInterval(intervalId));
+  refreshInterval = setInterval(fetchDashboardStats, 60000);
+});
+
+onBeforeUnmount(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
 });
 </script>
 
@@ -144,29 +197,61 @@ onMounted(() => {
             <p v-if="lastUpdated" class="text-xs text-indigo-200">
               Diperbarui {{ lastUpdated }}
             </p>
-            <button
-              type="button"
-              @click="fetchDashboardStats"
-              :disabled="loading"
-              class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-900 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <svg
-                class="h-4 w-4"
-                :class="{ 'animate-spin': loading }"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
+            <div class="flex flex-wrap items-center gap-2.5">
+              <!-- Tombol Ekspor CSV di Banner Dasbor -->
+              <button
+                type="button"
+                @click="handleExportCSV"
+                :disabled="exporting"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-indigo-950 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-900 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Ekspor seluruh data inventaris toko ke file CSV"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              {{ loading ? 'Memuat...' : 'Segarkan data' }}
-            </button>
+                <svg
+                  v-if="!exporting"
+                  class="h-4 w-4 text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <svg
+                  v-else
+                  class="h-4 w-4 animate-spin text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{{ exporting ? 'Mengekspor...' : 'Ekspor CSV' }}</span>
+              </button>
+
+              <!-- Tombol Segarkan data -->
+              <button
+                type="button"
+                @click="fetchDashboardStats"
+                :disabled="loading"
+                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <svg
+                  class="h-4 w-4"
+                  :class="{ 'animate-spin': loading }"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {{ loading ? 'Memuat...' : 'Segarkan data' }}
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -191,12 +276,83 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        <RouterLink
-          :to="{ path: '/products', query: { stock_status: 'critical' } }"
-          class="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            @click="handleExportCriticalCSV"
+            :disabled="exportingCritical"
+            class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-amber-900 shadow-xs transition hover:bg-amber-100/70 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Ekspor daftar produk stok kritis ke file CSV"
+          >
+            <svg
+              v-if="!exportingCritical"
+              class="h-3.5 w-3.5 text-amber-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <svg
+              v-else
+              class="h-3.5 w-3.5 animate-spin text-amber-700"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ exportingCritical ? 'Mengekspor...' : 'Ekspor CSV Kritis' }}</span>
+          </button>
+          <RouterLink
+            :to="{ path: '/products', query: { stock_status: 'critical' } }"
+            class="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            Tinjau Stok Kritis &rarr;
+          </RouterLink>
+        </div>
+      </div>
+
+      <!-- Export Success Feedback Alert -->
+      <div
+        v-if="exportSuccess"
+        class="mb-6 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800 shadow-xs"
+        role="alert"
+      >
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ exportSuccess }}</span>
+        </div>
+        <button
+          type="button"
+          @click="exportSuccess = ''"
+          class="text-emerald-600 hover:text-emerald-900"
         >
-          Tinjau Stok Kritis &rarr;
-        </RouterLink>
+          &times;
+        </button>
+      </div>
+
+      <!-- Export Error Feedback Alert -->
+      <div
+        v-if="exportError"
+        class="mb-6 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800 shadow-xs"
+        role="alert"
+      >
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ exportError }}</span>
+        </div>
+        <button
+          type="button"
+          @click="exportError = ''"
+          class="text-red-600 hover:text-red-900"
+        >
+          &times;
+        </button>
       </div>
 
       <!-- Error State -->

@@ -777,3 +777,130 @@ class ProductStockFilterTests(APITestCase):
         self.assertNotIn("OUT-1", skus)
         self.assertNotIn("LOW-1", skus)
 
+
+class ProductCSVImportExportTests(APITestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user(
+            username="csv-seller",
+            password="test-password",
+        )
+        self.other_seller = User.objects.create_user(
+            username="other-seller",
+            password="test-password-2",
+        )
+        self.category = Category.objects.create(
+            name="Makanan",
+            seller=self.seller,
+            created_by=self.seller,
+            updated_by=self.seller,
+        )
+        self.product = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Keripik Tempe",
+            sku="TEMPE-01",
+            price="15000.00",
+            stock=25,
+            status=Product.Status.ACTIVE,
+        )
+        self.export_url = reverse("product-export-csv")
+        self.template_url = reverse("product-template-csv")
+        self.import_url = reverse("product-import-csv")
+
+    def test_unauthenticated_requests_are_rejected(self):
+        for url in [self.export_url, self.template_url, self.import_url]:
+            response = self.client.get(url) if url != self.import_url else self.client.post(url)
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_export_products_csv(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(self.export_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn('filename="produk-', response["Content-Disposition"])
+        self.assertTrue(response["Content-Disposition"].endswith('.csv"'))
+        content = response.content.decode("utf-8-sig")
+        self.assertIn("No.,SKU,Nama Produk,Kategori,Harga Satuan,Stok,Total Nilai Stok,Status,Tanggal Terdaftar,Deskripsi", content)
+        self.assertIn("TEMPE-01", content)
+        self.assertIn("Keripik Tempe", content)
+        self.assertIn("Aktif", content)
+
+    def test_download_template_csv(self):
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get(self.template_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('filename="template-import-produk-', response["Content-Disposition"])
+        self.assertTrue(response["Content-Disposition"].endswith('.csv"'))
+        content = response.content.decode("utf-8-sig")
+        self.assertIn("SKU,Nama Produk,Kategori,Harga,Stok,Status,Deskripsi", content)
+        self.assertIn("PROD-001", content)
+
+    def test_import_products_csv_success(self):
+        self.client.force_authenticate(user=self.seller)
+        csv_data = (
+            "SKU,Nama Produk,Kategori,Harga,Stok,Status,Deskripsi\n"
+            "SNACK-01,Keripik Singkong,Makanan,12000,40,active,Keripik renyah rasa gurih\n"
+            "SNACK-02,Kacang Bawang,Makanan,18000,15,active,Kacang bawang gurih renyah\n"
+        )
+        from io import BytesIO
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_file = SimpleUploadedFile(
+            "import.csv",
+            csv_data.encode("utf-8"),
+            content_type="text/csv",
+        )
+        response = self.client.post(
+            self.import_url,
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["imported_count"], 2)
+        self.assertTrue(Product.objects.filter(sku="SNACK-01", seller=self.seller).exists())
+        self.assertTrue(Product.objects.filter(sku="SNACK-02", seller=self.seller).exists())
+
+    def test_import_products_csv_duplicate_sku_in_db(self):
+        self.client.force_authenticate(user=self.seller)
+        csv_data = (
+            "SKU,Nama Produk,Kategori,Harga,Stok,Status,Deskripsi\n"
+            "TEMPE-01,Keripik Tempe Baru,Makanan,15000,10,active,\n"
+        )
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_file = SimpleUploadedFile(
+            "import.csv",
+            csv_data.encode("utf-8"),
+            content_type="text/csv",
+        )
+        response = self.client.post(
+            self.import_url,
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["success"])
+        self.assertIn("errors", response.data)
+        self.assertTrue(any("sudah digunakan" in err["message"] for err in response.data["errors"]))
+
+    def test_import_products_csv_invalid_category(self):
+        self.client.force_authenticate(user=self.seller)
+        csv_data = (
+            "SKU,Nama Produk,Kategori,Harga,Stok,Status,Deskripsi\n"
+            "NEW-SKU-99,Produk Tanpa Kategori,KategoriGaib,15000,10,active,\n"
+        )
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_file = SimpleUploadedFile(
+            "import.csv",
+            csv_data.encode("utf-8"),
+            content_type="text/csv",
+        )
+        response = self.client.post(
+            self.import_url,
+            {"file": csv_file},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(response.data["success"])
+        self.assertTrue(any("tidak ditemukan" in err["message"] for err in response.data["errors"]))
+
+

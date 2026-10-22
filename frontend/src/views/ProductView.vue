@@ -4,12 +4,20 @@ import { useRoute } from 'vue-router';
 
 import ProductDeleteConfirmation from '@/components/ProductDeleteConfirmation.vue';
 import ProductDetailModal from '@/components/ProductDetailModal.vue';
+import ProductImportModal from '@/components/ProductImportModal.vue';
 import ProductForm from '@/components/ProductForm.vue';
 import BaseTable from '@/components/BaseTable.vue';
 
-import { getProducts, getProduct, deleteProduct, patchProduct } from '@/api/productService';
+import {
+  getProducts,
+  getProduct,
+  deleteProduct,
+  patchProduct,
+  exportProductsCSV,
+} from '@/api/productService';
 import { getCategories } from '@/api/categoryService';
 import { formatCurrency } from '@/utils/formatters';
+import { triggerFileDownload, generateCSVFilename } from '@/utils/download';
 
 // State
 
@@ -36,6 +44,9 @@ const showDeleteModal = ref(false);
 const productToDelete = ref(null);
 const deleting = ref(false);
 const statusUpdating = ref(null);
+
+const showImportModal = ref(false);
+const exporting = ref(false);
 
 const searchInput = ref('');
 const search = ref('');
@@ -335,6 +346,44 @@ async function handleDelete() {
   }
 }
 
+// CSV Import & Export Actions
+
+function openImportModal() {
+  showImportModal.value = true;
+}
+
+function closeImportModal() {
+  showImportModal.value = false;
+}
+
+function handleImportSuccess(message) {
+  successMessage.value = message;
+  errorMessage.value = '';
+  fetchProducts(1);
+}
+
+async function handleExportCSV() {
+  if (exporting.value) return;
+  exporting.value = true;
+  errorMessage.value = '';
+
+  try {
+    const params = {};
+    if (search.value.trim()) params.search = search.value.trim();
+    if (categoryFilter.value) params.category = categoryFilter.value;
+    if (statusFilter.value) params.status = statusFilter.value;
+    if (stockFilter.value) params.stock_status = stockFilter.value;
+
+    const response = await exportProductsCSV(params);
+    triggerFileDownload(response.data, generateCSVFilename('produk'));
+  } catch (err) {
+    console.error('Failed to export products:', err);
+    errorMessage.value = 'Gagal mengekspor data produk ke CSV. Silakan coba lagi.';
+  } finally {
+    exporting.value = false;
+  }
+}
+
 // Lifecycle
 
 watch(
@@ -375,14 +424,59 @@ onMounted(async () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          @click="openCreateProduct"
-          class="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto sm:px-5"
-        >
-          <span class="mr-2 text-base leading-none">+</span>
-          Tambah Produk
-        </button>
+        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <!-- Tombol Ekspor CSV -->
+          <button
+            type="button"
+            @click="handleExportCSV"
+            :disabled="exporting || loading"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition duration-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Ekspor daftar produk saat ini ke file CSV"
+          >
+            <svg
+              v-if="!exporting"
+              class="h-4 w-4 text-slate-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <svg
+              v-else
+              class="h-4 w-4 animate-spin text-indigo-600"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ exporting ? 'Mengekspor...' : 'Ekspor CSV' }}</span>
+          </button>
+
+          <!-- Tombol Impor Produk -->
+          <button
+            type="button"
+            @click="openImportModal"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 text-sm font-semibold text-indigo-700 shadow-xs transition duration-200 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            title="Impor produk dari file CSV"
+          >
+            <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span>Impor Produk</span>
+          </button>
+
+          <!-- Tombol Tambah Produk -->
+          <button
+            type="button"
+            @click="openCreateProduct"
+            class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            <span class="text-base leading-none">+</span>
+            <span>Tambah Produk</span>
+          </button>
+        </div>
       </div>
 
       <!-- Success message -->
@@ -433,6 +527,13 @@ onMounted(async () => {
         :deleting="deleting"
         @cancel="cancelDelete"
         @confirm="handleDelete"
+      />
+
+      <!-- Product import modal -->
+      <ProductImportModal
+        v-if="showImportModal"
+        @close="closeImportModal"
+        @success="handleImportSuccess"
       />
 
       <!-- Search and filter -->
