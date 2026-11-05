@@ -904,3 +904,270 @@ class ProductCSVImportExportTests(APITestCase):
         self.assertTrue(any("tidak ditemukan" in err["message"] for err in response.data["errors"]))
 
 
+class ProductFavoriteTests(APITestCase):
+    def setUp(self):
+        self.seller_a = User.objects.create_user(username="fav-seller-a", password="password")
+        self.seller_b = User.objects.create_user(username="fav-seller-b", password="password")
+        self.category = Category.objects.create(name="Kopi", seller=self.seller_a)
+        self.product_a = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category,
+            name="Kopi Arabika",
+            sku="KOPI-01",
+            price="40000.00",
+            stock=15,
+            status=Product.Status.ACTIVE,
+            is_favorite=False,
+        )
+        self.product_b = Product.objects.create(
+            seller=self.seller_b,
+            category=self.category,
+            name="Kopi Robusta",
+            sku="KOPI-02",
+            price="30000.00",
+            stock=20,
+            status=Product.Status.ACTIVE,
+            is_favorite=False,
+        )
+        self.toggle_url_a = reverse("product-favorite-toggle", kwargs={"id": self.product_a.id})
+        self.toggle_url_b = reverse("product-favorite-toggle", kwargs={"id": self.product_b.id})
+        self.list_url = reverse("product-list")
+
+    def test_favorite_toggle_requires_authentication(self):
+        response = self.client.post(self.toggle_url_a)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_seller_can_toggle_favorite_on_and_off(self):
+        self.client.force_authenticate(user=self.seller_a)
+
+        # Toggle ON
+        res1 = self.client.post(self.toggle_url_a)
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        self.assertTrue(res1.data["data"]["is_favorite"])
+        self.product_a.refresh_from_db()
+        self.assertTrue(self.product_a.is_favorite)
+
+        # Toggle OFF
+        res2 = self.client.post(self.toggle_url_a)
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertFalse(res2.data["data"]["is_favorite"])
+        self.product_a.refresh_from_db()
+        self.assertFalse(self.product_a.is_favorite)
+
+    def test_seller_cannot_toggle_favorite_on_other_sellers_product(self):
+        self.client.force_authenticate(user=self.seller_a)
+        response = self.client.post(self.toggle_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.product_b.refresh_from_db()
+        self.assertFalse(self.product_b.is_favorite)
+
+    def test_filter_products_by_is_favorite(self):
+        self.client.force_authenticate(user=self.seller_a)
+        # Create another product for seller A that is favorited
+        product_fav = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category,
+            name="Kopi Luwak",
+            sku="KOPI-LUWAK",
+            price="100000.00",
+            stock=5,
+            status=Product.Status.ACTIVE,
+            is_favorite=True,
+        )
+
+        # Query all
+        res_all = self.client.get(self.list_url)
+        self.assertEqual(res_all.data["data"]["count"], 2)
+
+        # Query only favorites
+        res_fav = self.client.get(self.list_url, {"is_favorite": "true"})
+        self.assertEqual(res_fav.data["data"]["count"], 1)
+        self.assertEqual(res_fav.data["data"]["results"][0]["sku"], "KOPI-LUWAK")
+
+        # Query non-favorites
+        res_non_fav = self.client.get(self.list_url, {"is_favorite": "false"})
+        self.assertEqual(res_non_fav.data["data"]["count"], 1)
+        self.assertEqual(res_non_fav.data["data"]["results"][0]["sku"], "KOPI-01")
+
+    def test_deleted_favorite_product_is_hidden(self):
+        self.client.force_authenticate(user=self.seller_a)
+        self.product_a.is_favorite = True
+        self.product_a.save()
+        self.product_a.soft_delete(self.seller_a)
+
+        res = self.client.get(self.list_url, {"is_favorite": "true"})
+        self.assertEqual(res.data["data"]["count"], 0)
+
+
+class ProductSortingTests(APITestCase):
+    def setUp(self):
+        self.seller = User.objects.create_user(username="sort-seller", password="password")
+        self.category = Category.objects.create(name="Snack", seller=self.seller)
+        self.client.force_authenticate(user=self.seller)
+        self.list_url = reverse("product-list")
+
+        # Create 3 products with different attributes
+        self.p1 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Keripik Apel",
+            sku="SKU-A",
+            price="15000.00",
+            stock=50,
+            status=Product.Status.ACTIVE,
+            is_favorite=False,
+        )
+        self.p2 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Keripik Pisang",
+            sku="SKU-B",
+            price="25000.00",
+            stock=10,
+            status=Product.Status.ACTIVE,
+            is_favorite=True,
+        )
+        self.p3 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name="Keripik Singkong",
+            sku="SKU-C",
+            price="10000.00",
+            stock=100,
+            status=Product.Status.ACTIVE,
+            is_favorite=False,
+        )
+
+    def test_sort_by_name_asc_and_desc(self):
+        # A - Z
+        res_asc = self.client.get(self.list_url, {"ordering": "name_asc"})
+        names_asc = [p["name"] for p in res_asc.data["data"]["results"]]
+        self.assertEqual(names_asc, ["Keripik Apel", "Keripik Pisang", "Keripik Singkong"])
+
+        # Z - A
+        res_desc = self.client.get(self.list_url, {"ordering": "name_desc"})
+        names_desc = [p["name"] for p in res_desc.data["data"]["results"]]
+        self.assertEqual(names_desc, ["Keripik Singkong", "Keripik Pisang", "Keripik Apel"])
+
+    def test_sort_by_price_asc_and_desc(self):
+        # Price lowest to highest
+        res_asc = self.client.get(self.list_url, {"ordering": "price_asc"})
+        skus_asc = [p["sku"] for p in res_asc.data["data"]["results"]]
+        self.assertEqual(skus_asc, ["SKU-C", "SKU-A", "SKU-B"])  # 10k, 15k, 25k
+
+        # Price highest to lowest
+        res_desc = self.client.get(self.list_url, {"ordering": "price_desc"})
+        skus_desc = [p["sku"] for p in res_desc.data["data"]["results"]]
+        self.assertEqual(skus_desc, ["SKU-B", "SKU-A", "SKU-C"])  # 25k, 15k, 10k
+
+    def test_sort_by_stock_asc_and_desc(self):
+        # Stock least to most
+        res_asc = self.client.get(self.list_url, {"ordering": "stock_asc"})
+        skus_asc = [p["sku"] for p in res_asc.data["data"]["results"]]
+        self.assertEqual(skus_asc, ["SKU-B", "SKU-A", "SKU-C"])  # 10, 50, 100
+
+        # Stock most to least
+        res_desc = self.client.get(self.list_url, {"ordering": "stock_desc"})
+        skus_desc = [p["sku"] for p in res_desc.data["data"]["results"]]
+        self.assertEqual(skus_desc, ["SKU-C", "SKU-A", "SKU-B"])  # 100, 50, 10
+
+    def test_export_csv_respects_favorite_filter_and_sorting(self):
+        export_url = reverse("product-export-csv")
+        res = self.client.get(export_url, {"is_favorite": "true", "ordering": "price_desc"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        content = res.content.decode("utf-8-sig")
+        self.assertIn("SKU-B", content)
+        self.assertNotIn("SKU-A", content)
+        self.assertNotIn("SKU-C", content)
+        self.assertIn("Favorit", content)
+
+
+
+
+
+class ProductBulkActionTests(APITestCase):
+    def setUp(self):
+        self.seller_a = User.objects.create_user(username="bulk-seller-a", password="password")
+        self.seller_b = User.objects.create_user(username="bulk-seller-b", password="password")
+        self.category = Category.objects.create(name="Bulk Cat", seller=self.seller_a)
+        self.client.force_authenticate(user=self.seller_a)
+        self.bulk_url = reverse("product-bulk-action")
+
+        self.p1 = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category,
+            name="Product 1",
+            sku="BULK-1",
+            price="10000.00",
+            stock=10,
+            status=Product.Status.ACTIVE,
+        )
+        self.p2 = Product.objects.create(
+            seller=self.seller_a,
+            category=self.category,
+            name="Product 2",
+            sku="BULK-2",
+            price="20000.00",
+            stock=20,
+            status=Product.Status.ACTIVE,
+        )
+        self.p_other = Product.objects.create(
+            seller=self.seller_b,
+            category=self.category,
+            name="Product Other",
+            sku="BULK-OTHER",
+            price="30000.00",
+            stock=30,
+            status=Product.Status.ACTIVE,
+        )
+
+    def test_bulk_delete_own_products(self):
+        res = self.client.post(self.bulk_url, {
+            "action": "delete",
+            "ids": [str(self.p1.id), str(self.p2.id)],
+        }, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["data"]["affected_count"], 2)
+
+        self.p1.refresh_from_db()
+        self.p2.refresh_from_db()
+        self.assertIsNotNone(self.p1.deleted_at)
+        self.assertIsNotNone(self.p2.deleted_at)
+
+    def test_bulk_delete_cannot_delete_other_seller_product(self):
+        res = self.client.post(self.bulk_url, {
+            "action": "delete",
+            "ids": [str(self.p_other.id)],
+        }, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["data"]["affected_count"], 0)
+
+        self.p_other.refresh_from_db()
+        self.assertIsNone(self.p_other.deleted_at)
+
+    def test_bulk_set_status_to_inactive(self):
+        res = self.client.post(self.bulk_url, {
+            "action": "set_status",
+            "ids": [str(self.p1.id), str(self.p2.id)],
+            "status": "inactive",
+        }, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["data"]["affected_count"], 2)
+
+        self.p1.refresh_from_db()
+        self.p2.refresh_from_db()
+        self.assertEqual(self.p1.status, Product.Status.INACTIVE)
+        self.assertEqual(self.p2.status, Product.Status.INACTIVE)
+
+    def test_bulk_action_validation_errors(self):
+        # Invalid action
+        res = self.client.post(self.bulk_url, {"action": "invalid", "ids": [str(self.p1.id)]}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Empty ids
+        res = self.client.post(self.bulk_url, {"action": "delete", "ids": []}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Invalid UUID
+        res = self.client.post(self.bulk_url, {"action": "delete", "ids": ["not-a-uuid"]}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)

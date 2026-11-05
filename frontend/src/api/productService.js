@@ -26,6 +26,10 @@ export function deleteProduct(id) {
   return api.delete(`/products/${id}/`);
 }
 
+export function toggleProductFavorite(id) {
+  return api.post(`/products/${id}/favorite/`);
+}
+
 export function exportProductsCSV(params = {}) {
   return api.get('/products/export/', {
     params,
@@ -47,4 +51,17 @@ export function importProductsCSV(file) {
       'Content-Type': 'multipart/form-data',
     },
   });
+}
+
+/**
+ * Melakukan aksi massal (bulk) pada produk yang dipilih.
+ *
+ * @param {Object} payload
+ * @param {string[]} payload.ids - Daftar UUID produk yang dipilih.
+ * @param {string} payload.action - Aksi: 'delete' | 'set_status'.
+ * @param {string} [payload.status] - Status baru ('active'|'inactive'), wajib saat action='set_status'.
+ * @returns {Promise} Response dari API.
+ */
+export function bulkProductAction(payload) {
+  return api.post('/products/bulk-action/', payload);
 }

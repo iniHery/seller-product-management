@@ -102,6 +102,7 @@ class Product(models.Model):
         choices=Status.choices,
         default=Status.ACTIVE,
     )
+    is_favorite = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

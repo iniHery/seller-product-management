@@ -1,8 +1,10 @@
 import csv
 import io
+import uuid
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q, Sum
+from django.db.models.functions import Lower
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -170,8 +172,73 @@ class CategoryDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def _apply_product_filters_and_ordering(products, query_params):
+    search = query_params.get("search", "").strip()
+    if search:
+        products = products.filter(
+            Q(name__icontains=search) | Q(sku__icontains=search)
+        )
+
+    category = query_params.get("category", "").strip()
+    if category:
+        try:
+            uuid_val = uuid.UUID(category)
+            products = products.filter(
+                Q(category_id=uuid_val) | Q(category__name__icontains=category)
+            )
+        except (ValueError, AttributeError):
+            products = products.filter(category__name__icontains=category)
+
+    status_param = query_params.get("status", "").strip()
+    if status_param:
+        products = products.filter(status=status_param)
+
+    stock_status = query_params.get("stock_status", "").strip().lower()
+    if stock_status == "low":
+        products = products.filter(stock__gt=0, stock__lte=5)
+    elif stock_status == "out":
+        products = products.filter(stock=0)
+    elif stock_status == "critical":
+        products = products.filter(stock__lte=5)
+    elif stock_status == "in_stock":
+        products = products.filter(stock__gt=5)
+
+    is_favorite_param = query_params.get("is_favorite", "").strip().lower()
+    if is_favorite_param in ["true", "1"]:
+        products = products.filter(is_favorite=True)
+    elif is_favorite_param in ["false", "0"]:
+        products = products.filter(is_favorite=False)
+
+    ordering_param = query_params.get("ordering", "").strip().lower()
+    order_by_args = []
+    if ordering_param in ["name_asc", "name"]:
+        order_by_args.append(Lower("name").asc())
+    elif ordering_param in ["name_desc", "-name"]:
+        order_by_args.append(Lower("name").desc())
+    elif ordering_param in ["price_asc", "price"]:
+        order_by_args.append(F("price").asc())
+    elif ordering_param in ["price_desc", "-price"]:
+        order_by_args.append(F("price").desc())
+    elif ordering_param in ["stock_asc", "stock"]:
+        order_by_args.append(F("stock").asc())
+    elif ordering_param in ["stock_desc", "-stock"]:
+        order_by_args.append(F("stock").desc())
+    elif ordering_param in ["created_asc", "created_at"]:
+        order_by_args.append(F("created_at").asc())
+    elif ordering_param in ["created_desc", "-created_at"]:
+        order_by_args.append(F("created_at").desc())
+    elif ordering_param in ["updated_asc", "updated_at"]:
+        order_by_args.append(F("updated_at").asc())
+    elif ordering_param in ["updated_desc", "-updated_at"]:
+        order_by_args.append(F("updated_at").desc())
+    else:
+        order_by_args.append(F("created_at").desc())
+
+    order_by_args.append(F("id").desc())
+    return products.order_by(*order_by_args)
+
+
 class ProductAPIView(APIView):
-    # Existing methods omitted for brevity
     """GET: list products, POST: create a new product (seller set from request.user)"""
 
     permission_classes = [IsAuthenticated]
@@ -181,35 +248,9 @@ class ProductAPIView(APIView):
             seller=request.user,
             deleted_at__isnull=True,
         )
-
-        search = request.query_params.get('search', '').strip()
-        if search:
-            products = products.filter(
-                Q(name__icontains=search) | Q(sku__icontains=search)
-            )
-
-        category = request.query_params.get('category', '').strip()
-        if category:
-            products = products.filter(category__name__icontains=category)
-
-        status_param = request.query_params.get('status', '').strip()
-        if status_param:
-            products = products.filter(status=status_param)
-
-        stock_status = request.query_params.get('stock_status', '').strip().lower()
-        if stock_status == 'low':
-            products = products.filter(stock__gt=0, stock__lte=5)
-        elif stock_status == 'out':
-            products = products.filter(stock=0)
-        elif stock_status == 'critical':
-            products = products.filter(stock__lte=5)
-        elif stock_status == 'in_stock':
-            products = products.filter(stock__gt=5)
-
-        products = products.order_by('-created_at', '-id')
+        products = _apply_product_filters_and_ordering(products, request.query_params)
 
         paginator = ProductPagination()
-        # Note: CSV export endpoint does not use pagination; see ProductExportCSVAPIView
         paginated_qs = paginator.paginate_queryset(products, request, view=self)
         serializer = ProductSerializer(
             paginated_qs,
@@ -313,6 +354,115 @@ class ProductDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ProductFavoriteToggleAPIView(APIView):
+    """POST: Toggle favorite status for a product owned by the authenticated seller."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id, *args, **kwargs):
+        product = get_object_or_404(
+            Product.objects.select_related("category", "seller"),
+            pk=id,
+            seller=request.user,
+            deleted_at__isnull=True,
+        )
+        product.is_favorite = not product.is_favorite
+        product.save(update_fields=["is_favorite"])
+        serializer = ProductSerializer(product, context={"request": request})
+        return Response(
+            {
+                "success": True,
+                "message": (
+                    "Produk berhasil ditambahkan ke favorit."
+                    if product.is_favorite
+                    else "Produk berhasil dihapus dari favorit."
+                ),
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ProductBulkActionAPIView(APIView):
+    """POST: Perform bulk actions (delete, set_status) on products owned by authenticated seller."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        action = request.data.get("action")
+        ids = request.data.get("ids")
+
+        if not action or action not in ["delete", "set_status"]:
+            return Response(
+                {"success": False, "message": "Aksi tidak valid. Pilihan aksi: 'delete', 'set_status'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not ids or not isinstance(ids, list):
+            return Response(
+                {"success": False, "message": "Daftar ID produk ('ids') wajib berupa list dan tidak boleh kosong."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        valid_ids = []
+        for item in ids:
+            try:
+                valid_ids.append(uuid.UUID(str(item)))
+            except (ValueError, TypeError):
+                return Response(
+                    {"success": False, "message": f"ID produk '{item}' bukan UUID yang valid."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        now = timezone.now()
+        matching_products = Product.objects.filter(
+            seller=request.user,
+            id__in=valid_ids,
+            deleted_at__isnull=True,
+        )
+
+        if action == "delete":
+            with transaction.atomic():
+                affected_count = matching_products.update(
+                    deleted_at=now,
+                    deleted_by=request.user,
+                    updated_at=now,
+                    updated_by=request.user,
+                )
+            return Response(
+                {
+                    "success": True,
+                    "message": f"{affected_count} produk berhasil dihapus.",
+                    "data": {"affected_count": affected_count},
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        elif action == "set_status":
+            new_status = request.data.get("status")
+            if new_status not in [Product.Status.ACTIVE, Product.Status.INACTIVE]:
+                return Response(
+                    {"success": False, "message": "Status tidak valid. Pilihan status: 'active', 'inactive'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            with transaction.atomic():
+                affected_count = matching_products.update(
+                    status=new_status,
+                    updated_at=now,
+                    updated_by=request.user,
+                )
+            status_label = "diaktifkan" if new_status == Product.Status.ACTIVE else "dinonaktifkan"
+            return Response(
+                {
+                    "success": True,
+                    "message": f"{affected_count} produk berhasil {status_label}.",
+                    "data": {"affected_count": affected_count},
+                },
+                status=status.HTTP_200_OK,
+            )
+
+
 class DashboardAPIView(APIView):
     """GET: return dashboard statistics for the authenticated seller"""
     permission_classes = [IsAuthenticated]
@@ -396,32 +546,7 @@ class ProductExportCSVAPIView(APIView):
             seller=request.user,
             deleted_at__isnull=True,
         )
-
-        search = request.query_params.get("search", "").strip()
-        if search:
-            products = products.filter(
-                Q(name__icontains=search) | Q(sku__icontains=search)
-            )
-
-        category = request.query_params.get("category", "").strip()
-        if category:
-            products = products.filter(category__name__icontains=category)
-
-        status_param = request.query_params.get("status", "").strip()
-        if status_param:
-            products = products.filter(status=status_param)
-
-        stock_status = request.query_params.get("stock_status", "").strip().lower()
-        if stock_status == "low":
-            products = products.filter(stock__gt=0, stock__lte=5)
-        elif stock_status == "out":
-            products = products.filter(stock=0)
-        elif stock_status == "critical":
-            products = products.filter(stock__lte=5)
-        elif stock_status == "in_stock":
-            products = products.filter(stock__gt=5)
-
-        products = products.order_by("-created_at", "-id")
+        products = _apply_product_filters_and_ordering(products, request.query_params)
 
         response = HttpResponse(
             content_type="text/csv; charset=utf-8",
@@ -444,6 +569,7 @@ class ProductExportCSVAPIView(APIView):
             "Status",
             "Tanggal Terdaftar",
             "Deskripsi",
+            "Favorit",
         ])
 
         for idx, p in enumerate(products, start=1):
@@ -462,6 +588,7 @@ class ProductExportCSVAPIView(APIView):
                 else "-"
             )
             clean_desc = (p.description or "").replace("\r", " ").replace("\n", " ").strip()
+            fav_label = "Ya" if p.is_favorite else "Tidak"
 
             writer.writerow([
                 idx,
@@ -474,6 +601,7 @@ class ProductExportCSVAPIView(APIView):
                 status_label,
                 created_str,
                 clean_desc,
+                fav_label,
             ])
 
         return response

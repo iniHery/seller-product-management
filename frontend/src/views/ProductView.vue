@@ -8,12 +8,14 @@ import ProductImportModal from '@/components/ProductImportModal.vue';
 import ProductForm from '@/components/ProductForm.vue';
 import BaseTable from '@/components/BaseTable.vue';
 
+import CustomSelect from '@/components/CustomSelect.vue';
 import {
   getProducts,
   getProduct,
   deleteProduct,
   patchProduct,
   exportProductsCSV,
+  toggleProductFavorite,
 } from '@/api/productService';
 import { getCategories } from '@/api/categoryService';
 import { formatCurrency } from '@/utils/formatters';
@@ -23,6 +25,33 @@ import { triggerFileDownload, generateCSVFilename } from '@/utils/download';
 
 const products = ref([]);
 const categories = ref([]);
+const categoryOptions = ref([
+  { label: 'Semua Kategori', value: '' },
+]);
+const statusOptions = ref([
+  { label: 'Semua Status', value: '' },
+  { label: 'Aktif', value: 'active' },
+  { label: 'Tidak Aktif', value: 'inactive' },
+]);
+const stockOptions = ref([
+  { label: 'Semua Stok', value: '' },
+  { label: 'Tersedia (>5)', value: 'in_stock' },
+  { label: 'Menipis (1–5)', value: 'low' },
+  { label: 'Habis (0)', value: 'out' },
+  { label: 'Kritis (≤5)', value: 'critical' },
+]);
+const orderingOptions = ref([
+  { label: 'Terbaru Dibuat', value: 'created_desc' },
+  { label: 'Terlama Dibuat', value: 'created_asc' },
+  { label: 'Nama (A – Z)', value: 'name_asc' },
+  { label: 'Nama (Z – A)', value: 'name_desc' },
+  { label: 'Harga: Termurah', value: 'price_asc' },
+  { label: 'Harga: Termahal', value: 'price_desc' },
+  { label: 'Stok: Paling Sedikit', value: 'stock_asc' },
+  { label: 'Stok: Paling Banyak', value: 'stock_desc' },
+  { label: 'Terakhir Diperbarui', value: 'updated_desc' },
+  { label: 'Terlama Diperbarui', value: 'updated_asc' },
+]);
 
 const loading = ref(false);
 const productsLoadFailed = ref(false);
@@ -54,6 +83,9 @@ const search = ref('');
 const categoryFilter = ref('');
 const statusFilter = ref('');
 const stockFilter = ref('');
+const favoriteOnly = ref(false);
+const ordering = ref('created_desc');
+const favoriteUpdating = ref(null);
 
 const route = useRoute();
 
@@ -92,6 +124,14 @@ async function fetchProducts(page = 1) {
 
     if (stockFilter.value) {
       params.stock_status = stockFilter.value;
+    }
+
+    if (favoriteOnly.value) {
+      params.is_favorite = 'true';
+    }
+
+    if (ordering.value) {
+      params.ordering = ordering.value;
     }
 
     const response = await getProducts(params);
@@ -154,6 +194,11 @@ async function fetchCategories() {
     }
 
     categories.value = response.data.data;
+    // Populate options for CustomSelect
+    categoryOptions.value = [
+      { label: 'Semua Kategori', value: '' },
+      ...categories.value.map((cat) => ({ label: cat.name, value: cat.id })),
+    ];
   } catch (error) {
     console.error('Failed to fetch categories:', error);
 
@@ -165,7 +210,7 @@ async function fetchCategories() {
   }
 }
 
-// Search and filter
+
 
 function handleSearch() {
   search.value = searchInput.value.trim();
@@ -180,8 +225,68 @@ function resetFilters() {
   categoryFilter.value = '';
   statusFilter.value = '';
   stockFilter.value = '';
+  favoriteOnly.value = false;
+  ordering.value = 'created_desc';
 
   fetchProducts(1);
+}
+
+function toggleFavoriteFilter() {
+  favoriteOnly.value = !favoriteOnly.value;
+  fetchProducts(1);
+}
+
+function handleOrderingChange() {
+  fetchProducts(1);
+}
+
+function handleHeaderSort(field) {
+  if (field === 'name') {
+    ordering.value = ordering.value === 'name_asc' ? 'name_desc' : 'name_asc';
+  } else if (field === 'price') {
+    ordering.value = ordering.value === 'price_asc' ? 'price_desc' : 'price_asc';
+  } else if (field === 'stock') {
+    ordering.value = ordering.value === 'stock_asc' ? 'stock_desc' : 'stock_asc';
+  }
+  fetchProducts(1);
+}
+
+function handleFilterChange() {
+  search.value = searchInput.value.trim();
+  fetchProducts(1);
+}
+
+async function handleToggleFavorite(product) {
+  if (favoriteUpdating.value === product.id) return;
+
+  favoriteUpdating.value = product.id;
+  const originalState = product.is_favorite;
+  // Optimistic UI update
+  product.is_favorite = !originalState;
+
+  try {
+    const response = await toggleProductFavorite(product.id);
+    if (response.data?.success && response.data?.data) {
+      product.is_favorite = response.data.data.is_favorite;
+      successMessage.value = response.data.message || (product.is_favorite ? 'Produk berhasil ditandai sebagai favorit.' : 'Produk berhasil dihapus dari favorit.');
+      window.setTimeout(() => {
+        if (successMessage.value) successMessage.value = '';
+      }, 3000);
+
+      // If viewing only favorites and seller unfavorited an item, refresh page
+      if (favoriteOnly.value && !product.is_favorite) {
+        fetchProducts(currentPage.value);
+      }
+    } else {
+      throw new Error();
+    }
+  } catch (error) {
+    product.is_favorite = originalState;
+    console.error('Failed to toggle favorite:', error);
+    errorMessage.value = error.response?.data?.detail || 'Gagal mengubah status favorit produk.';
+  } finally {
+    favoriteUpdating.value = null;
+  }
 }
 
 // Pagination
@@ -373,6 +478,8 @@ async function handleExportCSV() {
     if (categoryFilter.value) params.category = categoryFilter.value;
     if (statusFilter.value) params.status = statusFilter.value;
     if (stockFilter.value) params.stock_status = stockFilter.value;
+    if (favoriteOnly.value) params.is_favorite = 'true';
+    if (ordering.value) params.ordering = ordering.value;
 
     const response = await exportProductsCSV(params);
     triggerFileDownload(response.data, generateCSVFilename('produk'));
@@ -550,8 +657,8 @@ onMounted(async () => {
           </p>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <div class="sm:col-span-2 lg:col-span-3 xl:col-span-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div class="sm:col-span-2 lg:col-span-2 xl:col-span-2">
             <label
               for="search"
               class="mb-2 block text-sm font-semibold text-slate-700"
@@ -577,48 +684,14 @@ onMounted(async () => {
               Kategori
             </label>
 
-            <div class="relative">
-              <select
-                id="category"
-                v-model="categoryFilter"
-                @change="handleSearch"
-                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
-              >
-                <option
-                  value=""
-                  class="bg-white text-slate-900"
-                >
-                  Semua Kategori
-                </option>
-
-                <option
-                  v-for="category in categories"
-                  :key="category.id"
-                  :value="category.name"
-                  class="bg-white text-slate-900"
-                >
-                  {{ category.name }}
-                </option>
-              </select>
-
-              <div
-                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25-4.51a.75.75 0 01.02-1.06z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </div>
-            </div>
+            <CustomSelect
+              id="category"
+              v-model="categoryFilter"
+              :options="categoryOptions"
+              placeholder="Semua Kategori"
+              class="w-full"
+              @change="handleFilterChange"
+            />
           </div>
 
           <div>
@@ -629,53 +702,14 @@ onMounted(async () => {
               Status
             </label>
 
-            <div class="relative">
-              <select
-                id="status"
-                v-model="statusFilter"
-                @change="handleSearch"
-                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
-              >
-                <option
-                  value=""
-                  class="bg-white text-slate-900"
-                >
-                  Semua Status
-                </option>
-
-                <option
-                  value="active"
-                  class="bg-white text-slate-900"
-                >
-                  Aktif
-                </option>
-
-                <option
-                  value="inactive"
-                  class="bg-white text-slate-900"
-                >
-                  Tidak Aktif
-                </option>
-              </select>
-
-              <div
-                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25-4.51a.75.75 0 01-.02-1.06z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </div>
-            </div>
+            <CustomSelect
+              id="status"
+              v-model="statusFilter"
+              :options="statusOptions"
+              placeholder="Semua Status"
+              class="w-full"
+              @change="handleFilterChange"
+            />
           </div>
 
           <div>
@@ -686,58 +720,76 @@ onMounted(async () => {
               Stok
             </label>
 
-            <div class="relative">
-              <select
-                id="stock"
-                v-model="stockFilter"
-                @change="handleSearch"
-                class="block w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 py-3 pr-10 text-sm font-medium text-slate-900 shadow-sm outline-none transition duration-200 hover:border-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
-              >
-                <option value="">Semua Stok</option>
-                <option value="in_stock">Tersedia (> 5)</option>
-                <option value="low">Menipis (1 - 5)</option>
-                <option value="out">Habis (0)</option>
-                <option value="critical">Kritis (≤ 5)</option>
-              </select>
+            <CustomSelect
+              id="stock"
+              v-model="stockFilter"
+              :options="stockOptions"
+              placeholder="Semua Stok"
+              class="w-full"
+              @change="handleFilterChange"
+            />
+          </div>
 
-              <div
-                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25-4.51a.75.75 0 01-.02-1.06z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </div>
-            </div>
+          <div>
+            <label
+              for="ordering"
+              class="mb-2 block text-sm font-semibold text-slate-700"
+            >
+              Urutkan
+            </label>
+
+            <CustomSelect
+              id="ordering"
+              v-model="ordering"
+              :options="orderingOptions"
+              placeholder="Urutkan"
+              class="w-full"
+              @change="handleOrderingChange"
+            />
           </div>
         </div>
 
-        <div class="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
-            @click="handleSearch"
-            :disabled="loading"
-            class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Cari
-          </button>
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              @click="handleSearch"
+              :disabled="loading"
+              class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cari
+            </button>
 
+            <button
+              type="button"
+              @click="resetFilters"
+              :disabled="loading"
+              class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset
+            </button>
+          </div>
+
+          <!-- Filter Hanya Favorit -->
           <button
             type="button"
-            @click="resetFilters"
+            @click="toggleFavoriteFilter"
             :disabled="loading"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            :class="favoriteOnly ? 'border-amber-400 bg-amber-50 text-amber-800 ring-2 ring-amber-200' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
+            class="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-xs transition duration-200 focus:outline-none disabled:opacity-50"
+            title="Filter hanya menampilkan produk yang ditandai favorit"
           >
-            Reset
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 transition duration-150"
+              :class="favoriteOnly ? 'text-amber-500 fill-amber-400' : 'text-slate-400'"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              fill="none"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+            <span>{{ favoriteOnly ? 'Hanya Favorit (Aktif)' : 'Hanya Favorit' }}</span>
           </button>
         </div>
       </div>
@@ -815,7 +867,34 @@ onMounted(async () => {
             <thead class="bg-slate-50">
               <tr>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Produk
+                  <button
+                    type="button"
+                    @click="handleHeaderSort('name')"
+                    class="group inline-flex items-center gap-1.5 uppercase tracking-[0.08em] transition hover:text-slate-900 focus:outline-none"
+                    title="Klik untuk mengurutkan Nama (A-Z / Z-A)"
+                  >
+                    <span>Produk</span>
+                    <span class="inline-flex flex-col text-slate-300">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 -mb-1 transition-colors"
+                        :class="ordering === 'name_asc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                      </svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 transition-colors"
+                        :class="ordering === 'name_desc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </span>
+                  </button>
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
                   SKU
@@ -824,10 +903,64 @@ onMounted(async () => {
                   Kategori
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Harga
+                  <button
+                    type="button"
+                    @click="handleHeaderSort('price')"
+                    class="group inline-flex items-center gap-1.5 uppercase tracking-[0.08em] transition hover:text-slate-900 focus:outline-none"
+                    title="Klik untuk mengurutkan Harga (Termurah / Termahal)"
+                  >
+                    <span>Harga</span>
+                    <span class="inline-flex flex-col text-slate-300">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 -mb-1 transition-colors"
+                        :class="ordering === 'price_asc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                      </svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 transition-colors"
+                        :class="ordering === 'price_desc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </span>
+                  </button>
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
-                  Stok
+                  <button
+                    type="button"
+                    @click="handleHeaderSort('stock')"
+                    class="group inline-flex items-center gap-1.5 uppercase tracking-[0.08em] transition hover:text-slate-900 focus:outline-none"
+                    title="Klik untuk mengurutkan Stok (Paling Sedikit / Paling Banyak)"
+                  >
+                    <span>Stok</span>
+                    <span class="inline-flex flex-col text-slate-300">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 -mb-1 transition-colors"
+                        :class="ordering === 'stock_asc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                      </svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3 w-3 transition-colors"
+                        :class="ordering === 'stock_desc' ? 'text-indigo-600 font-bold' : 'group-hover:text-slate-500'"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </span>
+                  </button>
                 </th>
                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:px-5 lg:px-6">
                   Status
@@ -841,21 +974,42 @@ onMounted(async () => {
             <tbody class="divide-y divide-slate-200 bg-white">
               <tr v-for="product in products" :key="product.id" class="transition hover:bg-slate-50">
                 <td class="px-4 py-4 sm:px-5 lg:px-6">
-                  <div class="min-w-55">
+                  <div class="flex items-start gap-2.5 min-w-55">
                     <button
                       type="button"
-                      @click="openProductDetail(product)"
-                      class="text-left text-sm font-semibold text-slate-900 underline-offset-4 transition hover:text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-300 sm:text-base"
+                      @click.stop="handleToggleFavorite(product)"
+                      :disabled="favoriteUpdating === product.id"
+                      :title="product.is_favorite ? 'Hapus dari favorit' : 'Tandai sebagai favorit'"
+                      class="inline-flex shrink-0 rounded-lg p-1 pt-0 text-slate-400 transition hover:bg-amber-50 hover:text-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
                     >
-                      {{ product.name }}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 transition duration-150"
+                        :class="product.is_favorite ? 'text-amber-400 fill-amber-400' : 'text-slate-300 hover:text-amber-400'"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        fill="none"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
                     </button>
 
-                    <p
-                      v-if="product.description"
-                      class="mt-1 max-w-xs truncate text-xs text-slate-500 sm:text-sm"
-                    >
-                      {{ product.description }}
-                    </p>
+                    <div>
+                      <button
+                        type="button"
+                        @click="openProductDetail(product)"
+                        class="text-left text-sm font-semibold text-slate-900 underline-offset-4 transition hover:text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-300 sm:text-base"
+                      >
+                        {{ product.name }}
+                      </button>
+
+                      <p
+                        v-if="product.description"
+                        class="mt-1 max-w-xs truncate text-xs text-slate-500 sm:text-sm"
+                      >
+                        {{ product.description }}
+                      </p>
+                    </div>
                   </div>
                 </td>
 
